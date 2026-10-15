@@ -1,0 +1,2791 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>TGT Classroom Tournament</title>
+  
+  <!-- CSS & Libraries -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <!-- MathJax for LaTeX -->
+  <script>
+    MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f4f7f6; overflow-x: hidden; }
+    #sidebar { width: 250px; position: fixed; top: 0; left: 0; height: 100vh; background: #2c3e50; color: white; transition: 0.3s; z-index: 1000; padding-top: 20px;}
+    #sidebar .nav-link { color: #ecf0f1; padding: 12px 20px; transition: 0.2s; border-radius: 0 25px 25px 0; margin-right: 15px;}
+    #sidebar .nav-link:hover, #sidebar .nav-link.active { background: #3498db; color: white; }
+    #sidebar i { width: 25px; }
+    #content-area { margin-left: 250px; padding: 30px; transition: 0.3s; min-height: 100vh;}
+    #login-screen { position:fixed; inset:0; z-index:10000; background:linear-gradient(135deg,#1f3c88,#3498db); display:flex; align-items:center; justify-content:center; padding:20px;}
+    #login-card { width:min(460px,100%); border-radius:22px; overflow:hidden;}
+    .monitor-card { border-left:5px solid #3498db; }
+    .monitor-card.live { border-left-color:#2ecc71; }
+    .monitor-dot { width:10px; height:10px; border-radius:50%; display:inline-block; background:#aaa; }
+    .monitor-dot.live { background:#2ecc71; box-shadow:0 0 0 4px rgba(46,204,113,.15); }
+    .page-section { display: none; animation: fadeIn 0.4s; }
+    .page-section.active { display: block; }
+    .card { border: none; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px;}
+    .stat-card { color: white; padding: 20px; border-radius: 12px; }
+    .bg-blue { background: linear-gradient(45deg, #3498db, #2980b9); }
+    .bg-green { background: linear-gradient(45deg, #2ecc71, #27ae60); }
+    .bg-purple { background: linear-gradient(45deg, #9b59b6, #8e44ad); }
+    .bg-orange { background: linear-gradient(45deg, #e67e22, #d35400); }
+    
+    /* Game UI */
+    .kartu-soal { background: white; border: 2px solid #3498db; border-radius: 15px; padding: 30px; min-height: 300px; position: relative; box-shadow: 0 10px 20px rgba(0,0,0,0.1);}
+    .player-badge { padding: 10px; border-radius: 8px; border: 2px solid #ddd; text-align: center; font-weight: bold; cursor: pointer; transition: 0.2s;}
+    .player-badge.active-turn { border-color: #f1c40f; background: #fff9e6; box-shadow: 0 0 10px rgba(241,196,15,0.5);}
+    .player-badge.sanggah-turn { border-color: #e74c3c; background: #fdeceb;}
+    .card-won { color: #27ae60; font-size: 1.2rem; }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 768px) {
+      #sidebar { left: -250px; }
+      #sidebar.show { left: 0; }
+      #content-area { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="login-screen">
+    <div id="login-card" class="card shadow-lg border-0">
+      <div class="card-body p-4 p-md-5">
+        <div class="text-center mb-4"><i class="fas fa-trophy fa-3x text-warning"></i><h2 class="fw-bold mt-2">TGT Classroom Tournament</h2><p class="text-muted mb-0">Login untuk mengikuti atau mengelola turnamen.</p></div>
+        <div class="mb-3"><label class="form-label fw-bold">Login sebagai</label><select id="login-role" class="form-select form-select-lg"><option value="GURU">Guru</option><option value="MURID">Murid</option><option value="MEJA">Meja Turnamen</option></select></div>
+        <div class="mb-3"><label class="form-label">Username</label><input id="login-username" class="form-control form-control-lg" autocomplete="username" placeholder="Username / NIS / MEJA_..."></div>
+        <div class="mb-3"><label class="form-label">Password / PIN</label><input id="login-password" type="password" class="form-control form-control-lg" autocomplete="current-password" placeholder="Password atau PIN"></div>
+        <button class="btn btn-primary btn-lg w-100" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Masuk</button>
+        <div id="login-error" class="text-danger text-center mt-3 fw-bold"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loader" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:9999; display:flex; justify-content:center; align-items:center;">
+    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"><span class="visually-hidden">Loading...</span></div>
+  </div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <h4 class="text-center mb-4"><i class="fas fa-trophy text-warning"></i> TGT App</h4>
+    <nav class="nav flex-column">
+      <a class="nav-link active" href="#" onclick="showPage('dashboard')"><i class="fas fa-home"></i> Dashboard</a>
+      <a class="nav-link" href="#" onclick="showPage('murid')"><i class="fas fa-users"></i> Data Murid</a>
+      <a class="nav-link" href="#" onclick="showPage('kelompok')"><i class="fas fa-puzzle-piece"></i> Kelompok Asal</a>
+      <a class="nav-link" href="#" onclick="showPage('meja')"><i class="fas fa-chess-board"></i> Meja Turnamen</a>
+      <a class="nav-link" href="#" onclick="showPage('soal')"><i class="fas fa-book"></i> Bank Soal</a>
+      <a class="nav-link" href="#" onclick="showPage('turnamen')"><i class="fas fa-gamepad"></i> Mulai Turnamen</a>
+      <a class="nav-link" href="#" onclick="showPage('hasil')"><i class="fas fa-chart-bar"></i> Laporan & Hasil</a>
+      <a class="nav-link" href="#" onclick="showPage('pengaturan')"><i class="fas fa-cog"></i> Pengaturan</a>
+      <a class="nav-link" href="#" onclick="showPage('panduan')"><i class="fas fa-info-circle"></i> Panduan TGT</a>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <div id="content-area">
+    <div class="d-flex justify-content-end mb-2"><span class="badge bg-secondary me-2" id="user-session-badge"></span><button class="btn btn-outline-danger btn-sm" onclick="logoutApp()"><i class="fas fa-sign-out-alt"></i> Keluar</button></div>
+    <button class="btn btn-dark d-md-none mb-3" onclick="document.getElementById('sidebar').classList.toggle('show')"><i class="fas fa-bars"></i> Menu</button>
+
+    <!-- KONTEKS KELAS AKTIF -->
+    <div id="class-context-bar" class="card mb-4 border-primary">
+      <div class="card-body py-3">
+        <div class="row align-items-center g-2">
+          <div class="col-md-7">
+            <div class="d-flex align-items-center gap-2">
+              <i class="fas fa-school text-primary fa-lg"></i>
+              <div><div class="fw-bold">Kelas Aktif</div><small class="text-muted">Pilih kelas sebelum mengatur kelompok, meja, dan turnamen.</small></div>
+            </div>
+          </div>
+          <div class="col-md-5">
+            <select id="select-kelas-aktif" class="form-select form-select-lg" onchange="selectActiveClass(this.value)">
+              <option value="">-- Pilih Kelas yang Akan Diajar --</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: DASHBOARD -->
+    <div id="page-dashboard" class="page-section active">
+      <h2>Dashboard TGT Classroom</h2>
+      <p class="text-muted" id="dash-subtitle">Selamat datang di sistem manajemen pembelajaran kooperatif TGT.</p>
+      
+      <div class="row mt-4">
+        <div class="col-md-3"><div class="stat-card bg-blue"><h5>Murid</h5><h2 id="stat-murid">0</h2></div></div>
+        <div class="col-md-3"><div class="stat-card bg-green"><h5>Kelompok</h5><h2 id="stat-kelompok">0</h2></div></div>
+        <div class="col-md-3"><div class="stat-card bg-purple"><h5>Meja Turnamen</h5><h2 id="stat-meja">0</h2></div></div>
+        <div class="col-md-3"><div class="stat-card bg-orange"><h5>Bank Soal</h5><h2 id="stat-soal">0</h2></div></div>
+      </div>
+      
+      <div class="card mt-4">
+        <div class="card-body">
+          <h4>Kesiapan Turnamen</h4>
+          <ul class="list-group list-group-flush mt-3" id="kesiapan-list">
+            <!-- Populated via JS -->
+          </ul>
+          <button class="btn btn-primary mt-3" onclick="showPage('turnamen')"><i class="fas fa-play"></i> Ke Menu Turnamen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: MURID -->
+    <div id="page-murid" class="page-section">
+      <h2>Data Murid</h2>
+      <div class="card mt-3">
+        <div class="card-body">
+          <button class="btn btn-primary mb-3" onclick="openModalMurid()"><i class="fas fa-plus"></i> Tambah Murid</button>
+          <button class="btn btn-outline-success mb-3 ms-2" onclick="openModalImportMurid()"><i class="fas fa-file-import"></i> Import Siswa</button>
+          <button class="btn btn-outline-secondary mb-3 ms-2" onclick="downloadTemplateMurid()"><i class="fas fa-download"></i> Template Excel</button>
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead><tr><th>NIS</th><th>Nama</th><th>JK</th><th>Kemampuan Awal</th><th>Aksi</th></tr></thead>
+              <tbody id="tbody-murid"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: KELOMPOK ASAL -->
+    <div id="page-kelompok" class="page-section">
+      <h2>Pengaturan Kelompok Asal <span class="badge bg-primary" id="badge-kelas-kelompok"></span></h2>
+      <div class="card mt-3">
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-md-4">
+              <label>Jumlah Kelompok:</label>
+              <input type="number" id="input-jumlah-kelompok" class="form-control" value="8" min="1">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <button class="btn btn-primary" onclick="generateKelompokUI()">Buat Template Kelompok</button>
+            </div>
+          </div>
+          
+          <div class="alert alert-info"><i class="fas fa-info-circle"></i> Pilih kelompok untuk masing-masing murid dari dropdown di bawah, atau biarkan kosong jika belum ditentukan. Pastikan kelompok <b>Heterogen</b> (campuran Tinggi, Sedang, Rendah).</div>
+          
+          <div id="kelompok-editor-container" class="mt-4">
+             <!-- Rendered via JS -->
+          </div>
+          
+          <button class="btn btn-success mt-3" onclick="saveKelompok()"><i class="fas fa-save"></i> Simpan Penempatan Kelompok</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: MEJA TURNAMEN -->
+    <div id="page-meja" class="page-section">
+      <h2>Pengaturan Meja Turnamen <span class="badge bg-primary" id="badge-kelas-meja"></span></h2>
+      <div class="card mt-3">
+        <div class="card-body">
+          <div class="row mb-3 g-2">
+            <div class="col-md-3">
+              <label>Jumlah Meja:</label>
+              <input type="number" id="input-jumlah-meja" class="form-control" value="9" min="1">
+            </div>
+            <div class="col-md-3">
+              <label>Target Anggota/Meja:</label>
+              <input type="number" id="input-anggota-meja" class="form-control" value="4" min="1">
+              <small class="text-muted">Sistem menyesuaikan jika jumlah murid tidak habis dibagi.</small>
+            </div>
+            <div class="col-md-6 d-flex align-items-end gap-2 flex-wrap">
+              <button class="btn btn-primary" onclick="generateMejaUI()"><i class="fas fa-table"></i> Buat Template Meja</button>
+              <button class="btn btn-warning" onclick="autoSetMejaBySystem()"><i class="fas fa-magic"></i> Setting oleh Sistem</button>
+            </div>
+          </div>
+          
+          <div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Meja turnamen harus bersifat <b>Homogen</b>. Kelompokkan murid Tinggi dengan Tinggi (Paket A), Sedang dengan Sedang (Paket B), dst. <b>Setting oleh Sistem</b> akan mengatur meja sekaligus menempatkan murid dari kelompok asal yang berbeda pada setiap meja.</div>
+          
+          <div id="meja-editor-container" class="mt-4">
+             <!-- Rendered via JS -->
+          </div>
+          
+          <button class="btn btn-success mt-3" onclick="saveMeja()"><i class="fas fa-save"></i> Simpan Penempatan Meja</button>
+          <button class="btn btn-outline-warning mt-3 ms-2" onclick="autoSetMejaBySystem()"><i class="fas fa-magic"></i> Atur Ulang oleh Sistem</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: SOAL -->
+    <div id="page-soal" class="page-section">
+      <h2>Bank Soal TGT</h2>
+      <div class="card mt-3">
+        <div class="card-body">
+          <button class="btn btn-primary mb-3" onclick="openModalSoal()"><i class="fas fa-plus"></i> Tambah Soal Manual</button>
+          <button class="btn btn-outline-success mb-3 ms-2" onclick="openModalImport()"><i class="fas fa-file-import"></i> Import Soal</button>
+          
+          <div class="row align-items-end mb-3">
+            <div class="col-md-7 mb-2 mb-md-0">
+              <label class="form-label fw-semibold">Filter Materi</label>
+              <select id="filter-soal-materi" class="form-select" onchange="renderSoalTable(document.querySelector('#soalTabs .nav-link.active')?.getAttribute('data-paket') || 'A')">
+                <option value="">Semua Materi</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <span class="badge bg-secondary p-2">Format LaTeX Didukung: \(x^2\)</span>
+            </div>
+          </div>
+
+          <ul class="nav nav-tabs" id="soalTabs">
+            <li class="nav-item"><a class="nav-link active" data-paket="A" data-bs-toggle="tab" href="#paketA" onclick="renderSoalTable('A')">Paket A (Tinggi)</a></li>
+            <li class="nav-item"><a class="nav-link" data-paket="B" data-bs-toggle="tab" href="#paketB" onclick="renderSoalTable('B')">Paket B (Sedang)</a></li>
+            <li class="nav-item"><a class="nav-link" data-paket="C" data-bs-toggle="tab" href="#paketC" onclick="renderSoalTable('C')">Paket C (Rendah)</a></li>
+          </ul>
+          
+          <div class="tab-content mt-3">
+            <div class="table-responsive">
+              <table class="table table-bordered">
+                <thead><tr><th>No</th><th>Materi</th><th>Jenis</th><th>Pertanyaan</th><th>Kunci/Jawaban</th><th>Aksi</th></tr></thead>
+                <tbody id="tbody-soal"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: TURNAMEN (GAMEPLAY) -->
+    <div id="page-turnamen" class="page-section">
+      <div id="turnamen-setup">
+        <h2>Mulai Turnamen <span class="badge bg-primary">Kelas <span id="badge-kelas-turnamen"></span></span></h2>
+        <div class="d-flex justify-content-end mb-2"><button class="btn btn-outline-primary btn-sm" onclick="refreshTournamentPage()"><i class="fas fa-sync-alt"></i> Refresh</button></div>
+        <div class="card mt-3">
+          <div class="card-body text-center py-5">
+            <i class="fas fa-trophy fa-4x text-warning mb-3"></i>
+            <h4>Pilih Meja Turnamen untuk Dimulai</h4>
+            <div class="card border-primary mt-3 mb-3 text-start">
+              <div class="card-body">
+                <div class="row align-items-end">
+                  <div class="col-md-8">
+                    <label class="form-label fw-semibold"><i class="fas fa-book-open text-primary"></i> Materi yang Digunakan dalam Turnamen</label>
+                    <select id="select-materi-turnamen" class="form-select" onchange="onTournamentMaterialChange()">
+                      <option value="">Semua Materi</option>
+                    </select>
+                    <small class="text-muted">Hanya soal dari materi yang dipilih yang akan digunakan. Pilihan ini berlaku untuk sesi turnamen yang dibuka.</small>
+                  </div>
+                  <div class="col-md-4 mt-2 mt-md-0">
+                    <div id="materi-turnamen-info" class="alert alert-light border mb-0 py-2">Belum memilih materi.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div id="session-serentak-panel" class="alert alert-light border-primary mt-3 text-start">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div><b><i class="fas fa-sync-alt text-primary"></i> Turnamen Serentak</b><br><small class="text-muted" id="session-serentak-info">Belum ada sesi turnamen aktif.</small></div>
+                <div class="d-flex gap-2 flex-wrap" id="guru-session-controls">
+                  <button class="btn btn-success" onclick="startTournamentSerentak()"><i class="fas fa-play-circle"></i> Mulai Serentak</button>
+                  <button class="btn btn-warning" onclick="resumeTournamentSerentak()"><i class="fas fa-play"></i> Lanjutkan Turnamen</button>
+                  <button class="btn btn-outline-danger" onclick="stopTournamentSerentak()"><i class="fas fa-pause-circle"></i> Hentikan Sesi</button>
+                  <button class="btn btn-danger" onclick="endTournamentSerentak()"><i class="fas fa-flag-checkered"></i> Akhiri Sesi</button>
+                </div>
+              </div>
+            </div>
+            <div id="monitor-serentak-panel" class="card border-0 bg-light mt-3 text-start" style="display:none;">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2"><h5 class="mb-0"><i class="fas fa-desktop text-primary"></i> Monitor Proses Semua Meja</h5><small id="monitor-last-update" class="text-muted"></small></div>
+                <div id="monitor-grid" class="row mt-3"></div>
+              </div>
+            </div>
+            <div class="row justify-content-center mt-4" id="grid-meja-turnamen">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="turnamen-gameplay" style="display:none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2 id="game-meja-title">Meja 1 (Paket A)</h2>
+          <div>
+             <span class="badge bg-danger fs-5 me-3" id="game-timer">20:00</span>
+             <button class="btn btn-outline-secondary btn-sm" onclick="exitGame()"><i class="fas fa-times"></i> Keluar</button>
+          </div>
+        </div>
+        
+        <div class="row">
+          <!-- Pemain Panel -->
+          <div class="col-md-3" id="game-players-container">
+            <!-- Rendered JS -->
+          </div>
+          
+          <!-- Game Board -->
+          <div class="col-md-9">
+            <div class="kartu-soal text-center d-flex flex-column justify-content-center" id="game-card">
+              <div id="game-pre-start">
+                <h3>Turnamen Siap Dimulai!</h3>
+                <p>Pastikan semua pemain sudah siap.</p>
+                <button class="btn btn-success btn-lg mt-3" onclick="startGame()"><i class="fas fa-play"></i> Mulai Game</button>
+              </div>
+              
+              <div id="game-active" style="display:none;">
+                <h5 class="text-muted text-start">Soal #<span id="game-q-num">1</span></h5>
+                <div id="game-q-text" class="fs-4 my-4">Pertanyaan disini</div>
+                <div id="game-q-options" class="row justify-content-center mb-3">
+                  <!-- Options if PG -->
+                </div>
+                <div class="mb-3">
+                  <button id="btn-check-jawaban-card" class="btn btn-primary btn-lg px-4" onclick="checkAnswer()" style="display:none;">
+                    <i class="fas fa-check-double"></i> CHECK JAWABAN
+                  </button>
+                </div>
+                
+                <hr>
+                
+                <div id="game-controls">
+                  <h5 id="game-turn-info" class="text-primary mb-2">Giliran Utama: Pemain 1 menjawab...</h5>
+                  <div id="game-turn-order" class="small text-muted mb-3"></div>
+
+                  <!-- TAHAP 1: selalu cek pemain utama terlebih dahulu. -->
+                  <div id="action-sanggahan" style="display:none;"></div>
+
+                  <div id="action-check" style="display:none;">
+                    <p class="mb-2">Kunci Jawaban: <b id="game-key" class="text-success">B</b></p>
+                    <p class="fw-bold mb-2" id="check-stage-title">Cek jawaban pemain utama:</p>
+                    <div id="game-award-buttons">
+                       <!-- Tombol tahap utama / sanggahan dibuat dinamis -->
+                    </div>
+                  </div>
+
+                  <div id="action-next" style="display:none;">
+                    <button class="btn btn-primary btn-lg" onclick="nextTurn()">Lanjut Soal Berikutnya <i class="fas fa-arrow-right"></i></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <button class="btn btn-danger mt-4 float-end" onclick="finishTable()"><i class="fas fa-flag-checkered"></i> Selesai & Hitung Peringkat</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: HASIL & LAPORAN -->
+    <div id="page-hasil" class="page-section">
+      <h2>Laporan & Hasil Turnamen</h2>
+
+      <!-- HISTORI TURNAMEN: setiap sesi mempunyai ID_Sesi sendiri dan tidak menimpa sesi lama. -->
+      <div class="card mt-3 border-primary">
+        <div class="card-body">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <div>
+              <h5 class="mb-1"><i class="fas fa-history text-primary"></i> Histori Turnamen</h5>
+              <small class="text-muted">Pilih satu pelaksanaan turnamen untuk melihat rekap individu, meja, dan penghargaan kelompoknya.</small>
+            </div>
+            <button class="btn btn-sm btn-outline-primary" onclick="loadReports()"><i class="fas fa-sync"></i> Refresh Histori</button>
+          </div>
+          <div class="row align-items-end">
+            <div class="col-md-8">
+              <label for="report-session-select" class="form-label fw-semibold">Pilih Histori Turnamen</label>
+              <select id="report-session-select" class="form-select" onchange="onReportSessionChange()">
+                <option value="">Belum ada histori turnamen</option>
+              </select>
+            </div>
+            <div class="col-md-4 mt-2 mt-md-0">
+              <div id="report-session-info" class="alert alert-light border mb-0 py-2">Belum memilih sesi.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-body">
+          <ul class="nav nav-pills mb-3">
+            <li class="nav-item"><a class="nav-link active" data-bs-toggle="pill" href="#rep-individu">Rekap Individu & Meja</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#rep-kelompok">Penghargaan Kelompok Asal</a></li>
+          </ul>
+          
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="rep-individu">
+              <div class="table-responsive">
+                <table class="table table-striped text-center">
+                  <thead class="table-dark"><tr><th>Meja</th><th>Peringkat</th><th>Nama Pemain</th><th>Kartu Dimiliki</th><th>Poin</th></tr></thead>
+                  <tbody id="tbody-rep-individu"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="tab-pane fade" id="rep-kelompok">
+              <div class="row" id="container-rep-kelompok">
+                 <!-- Generated JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: PENGATURAN -->
+    <div id="page-pengaturan" class="page-section">
+      <h2>Pengaturan Sistem</h2>
+      <div class="card mt-3">
+        <div class="card-body">
+          <form id="form-config" onsubmit="event.preventDefault(); saveSettings();">
+            <div class="row">
+              <div class="col-md-6 mb-3"><label>Nama Sekolah</label><input type="text" class="form-control" id="cfg-sekolah"></div>
+              <div class="col-md-6 mb-3"><label>Mata Pelajaran</label><input type="text" class="form-control" id="cfg-mapel"></div>
+              
+              <h5 class="mt-3 border-bottom pb-2">Pengaturan Poin Berdasarkan Jumlah Pemain <small class="text-muted">(Pisahkan nilai dengan koma, urut dari Juara 1)</small></h5>
+              <div class="col-md-2 mb-3"><label>Meja 2 Pemain</label><input type="text" class="form-control" id="cfg-p2" placeholder="60,20"></div>
+              <div class="col-md-2 mb-3"><label>Meja 3 Pemain</label><input type="text" class="form-control" id="cfg-p3" placeholder="60,40,20"></div>
+              <div class="col-md-3 mb-3"><label>Meja 4 Pemain</label><input type="text" class="form-control" id="cfg-p4" placeholder="60,40,30,20"></div>
+              <div class="col-md-3 mb-3"><label>Meja 5 Pemain</label><input type="text" class="form-control" id="cfg-p5" placeholder="60,50,40,30,20"></div>
+              <div class="col-md-2 mb-3"><label>Meja 6 Pemain</label><input type="text" class="form-control" id="cfg-p6" placeholder="60,50,40,30,20,10"></div>
+              
+              <h5 class="mt-3 border-bottom pb-2">Pengaturan Turnamen</h5>
+              <div class="col-md-4 mb-3"><label>Durasi Turnamen (menit)</label><input type="number" min="1" max="180" class="form-control" id="cfg-duration-min" value="20"></div>
+              <div class="col-md-8 mb-3"><label>Mode Perangkat Peserta</label><select class="form-select" id="cfg-device-mode"><option value="TABLE">Satu perangkat untuk satu meja turnamen</option><option value="STUDENT">Setiap murid menggunakan gawai sendiri</option></select><small class="text-muted">Mode ini menentukan cara peserta masuk ke permainan saat sesi dimulai.</small></div>
+              <div class="col-md-4 mb-3"><label>PIN Default Meja</label><input type="text" class="form-control" id="cfg-table-password" value="1234"><small class="text-muted">Username meja otomatis: MEJA_[ID].</small></div>
+              <h5 class="mt-3 border-bottom pb-2">Penghargaan Kelompok (Rata-rata Minimal)</h5>
+              <div class="col-md-4 mb-3"><label>SUPER TEAM (Tinggi)</label><input type="number" class="form-control" id="cfg-super"></div>
+              <div class="col-md-4 mb-3"><label>GREAT TEAM (Sedang)</label><input type="number" class="form-control" id="cfg-great"></div>
+              <div class="col-md-4 mb-3"><label>GOOD TEAM (Rendah)</label><input type="number" class="form-control" id="cfg-good"></div>
+            </div>
+            <button type="submit" class="btn btn-primary mt-3"><i class="fas fa-save"></i> Simpan Pengaturan</button>
+            <button type="button" class="btn btn-danger mt-3 float-end" onclick="initDB()"><i class="fas fa-database"></i> Setup/Reset Database</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <!-- PAGE: PANDUAN -->
+    <div id="page-panduan" class="page-section">
+      <h2>Panduan Pelaksanaan TGT</h2>
+      <div class="card mt-3"><div class="card-body">
+        <h4>Langkah-Langkah:</h4>
+        <ol class="list-group list-group-numbered">
+          <li class="list-group-item">Masukkan data seluruh murid beserta kategori kemampuan awalnya.</li>
+          <li class="list-group-item">Bentuk Kelompok Asal secara <b>Heterogen</b> (campuran kemampuan).</li>
+          <li class="list-group-item">Bentuk Meja Turnamen secara <b>Homogen</b> (kemampuan sejenis) dan tentukan paket soal (A=Tinggi, B=Sedang, C=Rendah).</li>
+          <li class="list-group-item">Isi Bank Soal, pastikan paket A, B, C tersedia.</li>
+          <li class="list-group-item">Atur Poin Peringkat di menu Pengaturan. Sistem akan memberikan poin berdasarkan **jumlah pemain yang bertanding di meja**.</li>
+          <li class="list-group-item">Mulai Turnamen. Pemain bergilir membaca dan menjawab soal. Pemain lain dapat menyanggah jika pemain utama salah.</li>
+          <li class="list-group-item">Kartu menjadi milik penjawab yang benar. Jika semua salah, kartu hangus.</li>
+          <li class="list-group-item">Selesai turnamen, sistem akan menghitung peringkat, mengonversi ke poin, dan mengembalikan poin ke Kelompok Asal.</li>
+          <li class="list-group-item">Sistem menghitung rata-rata kelompok dan memberikan penghargaan (Super/Great/Good Team).</li>
+        </ol>
+      </div></div>
+    </div>
+
+  </div> <!-- End Content Area -->
+
+  <!-- MODALS -->
+  <!-- Modal Murid -->
+  <div class="modal fade" id="modalMurid" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Form Murid</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="form-murid">
+            <input type="hidden" id="m-id">
+            <div class="mb-2"><label>NIS</label><input type="text" id="m-nis" class="form-control" required></div>
+            <div class="mb-2"><label>Nama</label><input type="text" id="m-nama" class="form-control" required></div>
+            <div class="mb-2"><label>Kelas</label><input type="text" id="m-kelas" class="form-control" required></div>
+            <div class="mb-2"><label>Jenis Kelamin</label>
+              <select id="m-jk" class="form-select"><option value="L">Laki-laki</option><option value="P">Perempuan</option></select>
+            </div>
+            <div class="mb-2"><label>Kemampuan Awal</label>
+              <select id="m-kemampuan" class="form-select"><option value="Tinggi">Tinggi</option><option value="Sedang">Sedang</option><option value="Rendah">Rendah</option></select>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="submitMurid()">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Import Siswa -->
+  <div class="modal fade" id="modalImportMurid" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title"><i class="fas fa-file-import"></i> Import Data Siswa</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info">
+            <b>Format yang didukung:</b><br>
+            <code>No | NIS | Nama | Kelas | JK | Kemampuan</code><br>
+            atau tanpa kolom No:
+            <code>NIS | Nama | Kelas | JK | Kemampuan</code>
+            <hr class="my-2">
+            <small>
+              Copy data langsung dari Excel/Google Sheets lalu paste di kotak di bawah.
+              JK: <b>L/P</b>. Kemampuan: <b>Tinggi/Sedang/Rendah</b>.
+              Baris pertama boleh berupa header.
+              Jika NIS sudah ada, data siswa akan diperbarui tanpa menghapus Kelompok Asal dan Meja Turnamen.
+            </small>
+          </div>
+
+          <label class="form-label fw-bold">Data Siswa</label>
+          <textarea id="paste-murid" class="form-control font-monospace" rows="12"
+            placeholder="No&#9;NIS&#9;Nama&#9;Kelas&#9;JK&#9;Kemampuan
+1&#9;1001&#9;Ahmad&#9;X-1&#9;L&#9;Tinggi
+2&#9;1002&#9;Siti&#9;X-1&#9;P&#9;Sedang"></textarea>
+
+          <div id="preview-import-murid" class="mt-3"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" type="button" onclick="previewImportMurid()">
+            <i class="fas fa-eye"></i> Pratinjau
+          </button>
+          <button class="btn btn-success" type="button" onclick="prosesImportMurid()">
+            <i class="fas fa-upload"></i> Import Siswa
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Soal Manual -->
+  <div class="modal fade" id="modalSoal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Form Soal</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="form-soal">
+            <input type="hidden" id="s-id">
+            <div class="row">
+              <div class="col-md-6 mb-2">
+                <label>Materi</label>
+                <input type="text" id="s-materi" class="form-control" list="materi-list-soal" placeholder="Contoh: Persamaan Lingkaran">
+                <datalist id="materi-list-soal"></datalist>
+              </div>
+              <div class="col-md-3 mb-2">
+                <label>Paket</label>
+                <select id="s-paket" class="form-select"><option value="A">Paket A (Tinggi)</option><option value="B">Paket B (Sedang)</option><option value="C">Paket C (Rendah)</option></select>
+              </div>
+              <div class="col-md-3 mb-2">
+                <label>Jenis Soal</label>
+                <select id="s-jenis" class="form-select" onchange="toggleSoalType()"><option value="PG">Pilihan Ganda</option><option value="Singkat">Jawaban Singkat</option></select>
+              </div>
+            </div>
+            <div class="mb-2">
+              <label>Pertanyaan (Dukung MathJax LaTeX)</label>
+              <textarea id="s-tanya" class="form-control" rows="3" required></textarea>
+            </div>
+            
+            <div id="pg-options">
+              <div class="row">
+                <div class="col-md-6 mb-1"><label>Opsi A</label><input type="text" id="s-a" class="form-control"></div>
+                <div class="col-md-6 mb-1"><label>Opsi B</label><input type="text" id="s-b" class="form-control"></div>
+                <div class="col-md-6 mb-1"><label>Opsi C</label><input type="text" id="s-c" class="form-control"></div>
+                <div class="col-md-6 mb-1"><label>Opsi D</label><input type="text" id="s-d" class="form-control"></div>
+                <div class="col-md-6 mb-1"><label>Opsi E (Opsional)</label><input type="text" id="s-e" class="form-control"></div>
+                <div class="col-md-6 mb-1"><label>Kunci Jawaban</label>
+                  <select id="s-kunci" class="form-select"><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option></select>
+                </div>
+              </div>
+            </div>
+            
+            <div id="singkat-options" style="display:none;">
+              <div class="mb-2"><label>Jawaban Benar</label><input type="text" id="s-jawab" class="form-control"></div>
+            </div>
+            
+            <div class="mb-2"><label>Pembahasan</label><textarea id="s-bahas" class="form-control" rows="2"></textarea></div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="submitSoal()">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Import -->
+  <div class="modal fade" id="modalImport" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Import Soal</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <ul class="nav nav-tabs mb-3">
+            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#import-excel">Paste dari Excel</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#import-word">Paste dari Word</a></li>
+          </ul>
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="import-excel">
+              <p class="text-muted">Copy baris data dari Excel dan paste di bawah ini. Urutan kolom baru: No | Materi | Paket (A/B/C) | Jenis (PG/Singkat) | Pertanyaan | Opsi A | Opsi B | Opsi C | Opsi D | Opsi E | Kunci | Jawab Singkat | Pembahasan. Format lama tanpa Materi tetap didukung.</p>
+              <textarea id="paste-excel" class="form-control" rows="10" placeholder="Paste data Excel disini..."></textarea>
+              <button class="btn btn-success mt-2" onclick="prosesImport('excel')">Proses Import Excel</button>
+            </div>
+            <div class="tab-pane fade" id="import-word">
+              <p class="text-muted">Gunakan format:<br>SOAL 1<br>Materi: Persamaan Lingkaran<br>Paket: A<br>Jenis: PG<br>Pertanyaan: x+y=?<br>A. 1<br>B. 2<br>Kunci: A<br>Pembahasan: ...</p>
+              <textarea id="paste-word" class="form-control" rows="10" placeholder="Paste teks Word disini..."></textarea>
+              <button class="btn btn-success mt-2" onclick="prosesImport('word')">Proses Import Word</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    
+    // --- VERCEL GAS REST API WRAPPER ---
+    // GANTI URL DI BAWAH DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxDLBz_u3kG1e5iYU1yrGgeOjTAzpJrrrSUab8ODT9JBj4l8cx7XOEgYsP1_QaD92hc/exec";
+
+    if (typeof google === 'undefined') {
+      window.google = {};
+    }
+
+    google.script = {
+      run: new Proxy({}, {
+        get: function(target, prop) {
+          if (prop === 'withSuccessHandler') {
+            return function(cb) { return createRunObject(cb, null); };
+          }
+          if (prop === 'withFailureHandler') {
+            return function(cb) { return createRunObject(null, cb); };
+          }
+          return function(...args) {
+            createRunObject(null, null)[prop](...args);
+          };
+        }
+      })
+    };
+
+    function createRunObject(successCb, failureCb) {
+      return new Proxy({}, {
+        get: function(target, actionName) {
+          if (actionName === 'withSuccessHandler') {
+            return function(cb) { return createRunObject(cb, failureCb); };
+          }
+          if (actionName === 'withFailureHandler') {
+            return function(cb) { return createRunObject(successCb, cb); };
+          }
+          return function(...args) {
+            fetch(GAS_API_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({ action: actionName, args: args })
+            })
+            .then(res => res.json())
+            .then(res => {
+              if (res.status === 'success') {
+                if (successCb) successCb(res.data);
+              } else {
+                if (failureCb) failureCb(new Error(res.message));
+                else console.error(res.message);
+              }
+            })
+            .catch(err => {
+              if (failureCb) failureCb(err);
+              else console.error(err);
+            });
+          };
+        }
+      });
+    }
+    // -----------------------------------
+
+    // --- STATE MANAGEMENT ---
+    let appData = {
+      murid: [], kelompok: [], meja: [], soal: [], questionMaterials: [], config: {}, classes: [], session: null
+    };
+    let currentClass = localStorage.getItem('tgt_active_class') || '';
+    let userSession = JSON.parse(localStorage.getItem('tgt_user_session') || 'null');
+    let monitorInterval = null;
+    let liveSyncInterval = null;
+    let livePublishInterval = null;
+    let sessionHeartbeatInterval = null;
+    let gamePausedByTeacher = false;
+
+    let serverClockOffsetMs = 0;
+    function serverNow(){ return Date.now() + Number(serverClockOffsetMs||0); }
+    function syncServerClock(callback){ google.script.run.withSuccessHandler(ms=>{ serverClockOffsetMs=Number(ms||Date.now())-Date.now(); if(callback) callback(); }).withFailureHandler(()=>{ if(callback) callback(); }).getServerTimeMs(); }
+
+    let gameState = {
+      tableId: null, tableData: null, players: [], questions: [], 
+      currentQIndex: 0, currentTurn: 0, sanggahQueue: [], activeCardHangus: false, pendingPublishQ: -1, pendingPublishAt: 0
+    };
+
+    // --- INITIALIZATION ---
+    window.onload = function() {
+      hideLoader();
+      if(userSession) { applyUserSession(); initializeAfterLogin(); }
+      else showLoginScreen();
+    };
+
+    function showLoginScreen(){ document.getElementById('login-screen').style.display='flex'; }
+    function hideLoginScreen(){ document.getElementById('login-screen').style.display='none'; }
+    function doLogin(){
+      const role=document.getElementById('login-role').value, username=document.getElementById('login-username').value, password=document.getElementById('login-password').value;
+      document.getElementById('login-error').textContent=''; showLoader();
+      google.script.run.withSuccessHandler(res=>{
+        userSession=res; localStorage.setItem('tgt_user_session',JSON.stringify(res));
+        if(res.kelas) currentClass=res.kelas;
+        if(currentClass) localStorage.setItem('tgt_active_class',currentClass);
+        applyUserSession(); hideLoginScreen(); initializeAfterLogin();
+      }).withFailureHandler(err=>{ hideLoader(); document.getElementById('login-error').textContent=err.message||String(err); }).authenticateUser(username,password,role);
+    }
+    function applyUserSession(){
+      const badge=document.getElementById('user-session-badge');
+      if(badge && userSession) badge.textContent=`${userSession.nama || userSession.username} · ${userSession.role}`;
+      const isGuru=!!userSession && String(userSession.role || '').trim().toUpperCase()==='GURU';
+      const isNonGuru = !!userSession && !isGuru;
+      // Sidebar tetap tampil untuk semua akun. Guru melihat seluruh menu,
+      // sedangkan Murid/Meja hanya melihat menu Turnamen.
+      const sidebar = document.getElementById('sidebar');
+      if(sidebar) sidebar.style.display = '';
+      document.getElementById('content-area').style.marginLeft = '';
+      document.querySelectorAll('#sidebar .nav-link').forEach(a=>{
+        const target = (a.getAttribute('onclick') || '').match(/showPage\('([^']+)'\)/);
+        const page = target ? target[1] : '';
+        a.style.display = (isGuru || page === 'turnamen') ? '' : 'none';
+      });
+      if(isNonGuru){
+        document.getElementById('class-context-bar').style.display='none';
+      } else if(isGuru){
+        document.getElementById('class-context-bar').style.display='';
+      }
+    }
+    function initializeAfterLogin(){
+      showLoader();
+      google.script.run.withSuccessHandler(res=>{
+        appData.config=res||{};
+        const role=userSession?.role;
+        if(String(role || '').toUpperCase()!=='GURU' && userSession?.kelas) currentClass=userSession.kelas;
+        loadAllData(currentClass);
+      }).withFailureHandler(err=>{hideLoader(); Swal.fire('Gagal Memuat',err.message||String(err),'error');}).getConfig();
+    }
+    function logoutApp(){
+      // KELUAR APLIKASI: hanya mengakhiri sesi login dan kembali ke layar Login.
+      // Jangan gunakan location.reload() karena pada Google Apps Script Web App
+      // reload iframe dapat menampilkan halaman blank/putih.
+      if(monitorInterval) { clearInterval(monitorInterval); monitorInterval=null; }
+      if(liveSyncInterval) { clearInterval(liveSyncInterval); liveSyncInterval=null; }
+      if(livePublishInterval) { clearInterval(livePublishInterval); livePublishInterval=null; }
+      if(window.gameInterval) { clearInterval(window.gameInterval); window.gameInterval=null; }
+      if(window.sharedCountdownInterval) { clearInterval(window.sharedCountdownInterval); window.sharedCountdownInterval=null; }
+      if(sessionHeartbeatInterval) { clearInterval(sessionHeartbeatInterval); sessionHeartbeatInterval=null; }
+
+      localStorage.removeItem('tgt_user_session');
+      localStorage.removeItem('tgt_active_class');
+
+      userSession=null;
+      currentClass='';
+      appData.session=null;
+      gamePausedByTeacher=false;
+
+      // Reset state permainan lokal.
+      gameState = {
+        tableId:null, tableData:null, players:[], questions:[],
+        currentQIndex:0, currentTurn:0, sanggahQueue:[],
+        sanggahCursor:0, activeCardHangus:false, pendingPublishQ:-1, pendingPublishAt:0
+      };
+
+      // Sembunyikan aplikasi dan tampilkan kembali layar Login.
+      const sidebar=document.getElementById('sidebar');
+      const content=document.getElementById('content-area');
+      const classBar=document.getElementById('class-context-bar');
+      if(sidebar) sidebar.style.display='none';
+      if(content) content.style.display='none';
+      if(classBar) classBar.style.display='none';
+
+      document.querySelectorAll('.page-section').forEach(el=>el.classList.remove('active'));
+      const dashboard=document.getElementById('page-dashboard');
+      if(dashboard) dashboard.classList.add('active');
+
+      hideLoader();
+      showLoginScreen();
+
+      // Bersihkan isian login agar siap untuk akun berikutnya.
+      const username=document.getElementById('login-username');
+      const password=document.getElementById('login-password');
+      const error=document.getElementById('login-error');
+      if(username) username.value='';
+      if(password) password.value='';
+      if(error) error.textContent='';
+    }
+
+    function loadAllData(kelas = '') {
+      showLoader();
+      google.script.run.withSuccessHandler(res => {
+        appData.murid = res.students || [];
+        appData.kelompok = res.groups || [];
+        appData.meja = res.tables || [];
+        appData.soal = res.questions || [];
+        appData.questionMaterials = res.questionMaterials || [...new Set(appData.soal.map(q=>String(q.Materi||'').trim()).filter(Boolean))];
+        refreshQuestionMaterialOptions();
+        appData.config = res.config || appData.config;
+        appData.classes = res.classes || [];
+        appData.session = res.session || null;
+        refreshClassOptions();
+        updateDashboard();
+        if(document.getElementById('page-murid')?.classList.contains('active')) renderMurid();
+        if(document.getElementById('page-kelompok')?.classList.contains('active')) renderKelompokSelector();
+        if(document.getElementById('page-meja')?.classList.contains('active')) renderMejaSelector();
+        if(document.getElementById('page-turnamen')?.classList.contains('active')) renderTurnamenSetup();
+        hideLoader();
+      }).withFailureHandler(err => { hideLoader(); Swal.fire('Gagal Memuat Data', err.message || String(err), 'error'); }).getTournamentData(kelas);
+    }
+
+    function refreshClassOptions() {
+      const el = document.getElementById('select-kelas-aktif');
+      if(!el) return;
+      const classes = [...new Set((appData.classes || []).map(String).filter(Boolean))];
+      el.innerHTML = '<option value="">-- Pilih Kelas yang Akan Diajar --</option>' + classes.map(k => `<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join('');
+      el.value = currentClass || '';
+    }
+
+    function selectActiveClass(kelas) {
+      currentClass = String(kelas || '').trim();
+      localStorage.setItem('tgt_active_class', currentClass);
+      if(!currentClass) {
+        appData.murid = []; appData.kelompok = []; appData.meja = []; updateDashboard(); return;
+      }
+      loadAllData(currentClass);
+    }
+
+    function requireActiveClass() {
+      if(currentClass) return true;
+      Swal.fire({icon:'info', title:'Pilih Kelas Terlebih Dahulu', text:'Silakan pilih kelas aktif pada bagian Kelas Aktif sebelum mengatur kelompok, meja turnamen, atau memulai turnamen.'});
+      return false;
+    }
+
+
+    // --- UTILS ---
+    function showLoader() { document.getElementById('loader').style.display = 'flex'; }
+    function hideLoader() { document.getElementById('loader').style.display = 'none'; }
+    function showPage(pageId) {
+      document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('#sidebar .nav-link').forEach(el => el.classList.remove('active'));
+      document.getElementById('page-' + pageId).classList.add('active');
+      if(typeof event !== 'undefined' && event.currentTarget && event.currentTarget.classList) event.currentTarget.classList.add('active');
+      
+      if(window.innerWidth < 768) { document.getElementById('sidebar').classList.remove('show'); }
+      
+      // Page specific logic
+      if(userSession && userSession.role !== 'GURU' && pageId !== 'turnamen') { document.getElementById('page-turnamen').classList.add('active'); return; }
+      if(['murid','kelompok','meja','turnamen','hasil'].includes(pageId) && !requireActiveClass()) {
+        document.getElementById('page-dashboard').classList.add('active');
+        return;
+      }
+      if(pageId === 'murid') renderMurid();
+      if(pageId === 'soal') { refreshQuestionMaterialOptions(); renderSoalTable('A'); }
+      if(pageId === 'pengaturan') fillConfigForm();
+      if(pageId === 'kelompok') renderKelompokSelector();
+      if(pageId === 'meja') renderMejaSelector();
+      if(pageId === 'turnamen') renderTurnamenSetup();
+      if(pageId === 'hasil') loadReports();
+    }
+
+    function reTypeset() {
+      if(window.MathJax) { MathJax.typesetPromise(); }
+    }
+
+    // --- DASHBOARD ---
+    function updateDashboard() {
+      document.getElementById('stat-murid').innerText = appData.murid.length;
+      const sub = document.getElementById('dash-subtitle');
+      if(sub) sub.innerHTML = currentClass ? `Kelas aktif: <b>${escapeHtml(currentClass)}</b>. Semua pengaturan TGT di bawah ini berlaku untuk kelas tersebut.` : 'Silakan pilih kelas aktif terlebih dahulu sebelum mengatur TGT.';
+      document.getElementById('stat-kelompok').innerText = appData.kelompok.length;
+      document.getElementById('stat-meja').innerText = appData.meja.length;
+      document.getElementById('stat-soal').innerText = appData.soal.length;
+      
+      let html = '';
+      let mReady = appData.murid.length > 0;
+      let kReady = appData.kelompok.length > 0 && appData.murid.every(m => m.ID_Kelompok);
+      let tReady = appData.meja.length > 0 && appData.murid.every(m => m.ID_Meja);
+      let sReady = appData.soal.length >= 10; // min 10 for demo
+
+      html += `<li class="list-group-item"><i class="fas fa-${mReady?'check text-success':'times text-danger'}"></i> Data Murid ${mReady?'Siap':'Kosong'}</li>`;
+      html += `<li class="list-group-item"><i class="fas fa-${kReady?'check text-success':'times text-danger'}"></i> Penempatan Kelompok Asal ${kReady?'Selesai':'Belum Selesai'}</li>`;
+      html += `<li class="list-group-item"><i class="fas fa-${tReady?'check text-success':'times text-danger'}"></i> Penempatan Meja Turnamen ${tReady?'Selesai':'Belum Selesai'}</li>`;
+      html += `<li class="list-group-item"><i class="fas fa-${sReady?'check text-success':'times text-warning'}"></i> Bank Soal (${appData.soal.length} Soal)</li>`;
+      document.getElementById('kesiapan-list').innerHTML = html;
+    }
+
+    function initDB() {
+      Swal.fire({ title: 'Setup Database?', text: 'Ini akan membuat sheet yang diperlukan jika belum ada.', icon: 'warning', showCancelButton: true }).then((result) => {
+        if (result.isConfirmed) {
+          showLoader();
+          google.script.run.withSuccessHandler(res => {
+            hideLoader(); Swal.fire('Sukses', res, 'success');
+          }).setupDatabase();
+        }
+      });
+    }
+
+    // --- MODULE: MURID ---
+    let modalMurid;
+    function openModalMurid(id = null) {
+      if(!modalMurid) modalMurid = new bootstrap.Modal(document.getElementById('modalMurid'));
+      document.getElementById('form-murid').reset();
+      document.getElementById('m-id').value = '';
+      document.getElementById('m-kelas').value = currentClass || '';
+      if(id) {
+        const m = appData.murid.find(x => x.ID === id);
+        if(m) {
+          document.getElementById('m-id').value = m.ID;
+          document.getElementById('m-nis').value = m.NIS;
+          document.getElementById('m-nama').value = m.Nama;
+          document.getElementById('m-kelas').value = m.Kelas;
+          document.getElementById('m-jk').value = m.JK;
+          document.getElementById('m-kemampuan').value = m.Kemampuan;
+        }
+      }
+      modalMurid.show();
+    }
+
+    function submitMurid() {
+      const data = {
+        ID: document.getElementById('m-id').value, NIS: document.getElementById('m-nis').value,
+        Nama: document.getElementById('m-nama').value, Kelas: document.getElementById('m-kelas').value,
+        JK: document.getElementById('m-jk').value, Kemampuan: document.getElementById('m-kemampuan').value
+      };
+      if(!data.Nama || !data.NIS) return Swal.fire('Error', 'Isi data wajib!', 'error');
+      
+      showLoader();
+      google.script.run.withSuccessHandler(res => {
+        let idx = appData.murid.findIndex(m => m.ID === res.ID);
+        if(idx > -1) appData.murid[idx] = res; else appData.murid.push(res);
+        modalMurid.hide();
+        if(!appData.classes.includes(String(res.Kelas))) appData.classes.push(String(res.Kelas));
+        refreshClassOptions();
+        renderMurid(); updateDashboard(); hideLoader();
+        Swal.fire('Sukses', 'Data disimpan', 'success');
+      }).saveStudent(data);
+    }
+
+    function hapusMurid(id) {
+      Swal.fire({ title: 'Hapus?', icon: 'warning', showCancelButton: true }).then(res => {
+        if(res.isConfirmed) {
+          showLoader();
+          google.script.run.withSuccessHandler(() => {
+            appData.murid = appData.murid.filter(m => m.ID !== id);
+            renderMurid(); updateDashboard(); hideLoader();
+          }).deleteStudent(id);
+        }
+      });
+    }
+
+    function renderMurid() {
+      let html = '';
+      if(!currentClass) { document.getElementById('tbody-murid').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Pilih kelas aktif terlebih dahulu.</td></tr>'; return; }
+      appData.murid.forEach(m => {
+        let badgeColor = m.Kemampuan === 'Tinggi' ? 'success' : (m.Kemampuan === 'Sedang' ? 'warning' : 'danger');
+        html += `<tr>
+          <td>${m.NIS}</td><td>${m.Nama}</td><td>${m.JK}</td>
+          <td><span class="badge bg-${badgeColor}">${m.Kemampuan}</span></td>
+          <td>
+            <button class="btn btn-sm btn-info text-white" onclick="openModalMurid('${m.ID}')"><i class="fas fa-edit"></i></button>
+            <button class="btn btn-sm btn-danger" onclick="hapusMurid('${m.ID}')"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>`;
+      });
+      document.getElementById('tbody-murid').innerHTML = html;
+    }
+
+    // --- IMPORT DATA MURID ---
+    let modalImportMurid;
+
+    function openModalImportMurid() {
+      if(!modalImportMurid) {
+        modalImportMurid = new bootstrap.Modal(document.getElementById('modalImportMurid'));
+      }
+      document.getElementById('paste-murid').value = '';
+      document.getElementById('preview-import-murid').innerHTML = '';
+      modalImportMurid.show();
+    }
+
+    function parseImportMurid(text) {
+      const rows = text.trim().split(/\r?\n/).filter(r => r.trim() !== '');
+      const result = [];
+
+      rows.forEach((row, index) => {
+        const cols = row.includes('\t') ? row.split('\t') : row.split(';');
+        const values = cols.map(v => String(v ?? '').trim());
+        const joined = values.join(' ').toLowerCase();
+
+        // Abaikan header
+        if(index === 0 && (joined.includes('nis') || joined.includes('nama') || joined.includes('kelas'))) return;
+
+        let nis, nama, kelas, jk, kemampuan;
+        if(values.length >= 6) {
+          [, nis, nama, kelas, jk, kemampuan] = values;
+        } else if(values.length >= 5) {
+          [nis, nama, kelas, jk, kemampuan] = values;
+        } else {
+          return;
+        }
+
+        if(!nis || !nama) return;
+
+        jk = jk.toUpperCase();
+        if(jk === 'LAKI-LAKI' || jk === 'LAKI LAKI') jk = 'L';
+        if(jk === 'PEREMPUAN') jk = 'P';
+
+        kemampuan = kemampuan
+          ? kemampuan.charAt(0).toUpperCase() + kemampuan.slice(1).toLowerCase()
+          : 'Sedang';
+
+        if(!['L','P'].includes(jk)) jk = 'L';
+        if(!['Tinggi','Sedang','Rendah'].includes(kemampuan)) kemampuan = 'Sedang';
+
+        result.push({nis, nama, kelas, jk, kemampuan});
+      });
+
+      return result;
+    }
+
+    function previewImportMurid() {
+      const text = document.getElementById('paste-murid').value;
+      if(!text.trim()) return Swal.fire('Data Kosong', 'Silakan paste data siswa terlebih dahulu.', 'warning');
+
+      const rows = parseImportMurid(text);
+      if(!rows.length) {
+        document.getElementById('preview-import-murid').innerHTML =
+          '<div class="alert alert-warning">Tidak ada data siswa yang valid.</div>';
+        return;
+      }
+
+      let html = `
+        <div class="alert alert-success py-2">
+          Ditemukan <b>${rows.length}</b> siswa yang siap diimport.
+        </div>
+        <div class="table-responsive" style="max-height:300px;overflow:auto;">
+          <table class="table table-sm table-bordered table-hover">
+            <thead class="table-light sticky-top">
+              <tr><th>No</th><th>NIS</th><th>Nama</th><th>Kelas</th><th>JK</th><th>Kemampuan</th></tr>
+            </thead><tbody>`;
+
+      rows.forEach((r,i) => {
+        html += `<tr>
+          <td>${i+1}</td><td>${escapeHtml(r.nis)}</td><td>${escapeHtml(r.nama)}</td>
+          <td>${escapeHtml(r.kelas)}</td><td>${r.jk}</td><td>${r.kemampuan}</td>
+        </tr>`;
+      });
+
+      html += '</tbody></table></div>';
+      document.getElementById('preview-import-murid').innerHTML = html;
+    }
+
+    function prosesImportMurid() {
+      const text = document.getElementById('paste-murid').value;
+      if(!text.trim()) return Swal.fire('Data Kosong', 'Silakan paste data siswa terlebih dahulu.', 'warning');
+
+      const rows = parseImportMurid(text);
+      if(!rows.length) return Swal.fire('Data Tidak Valid', 'Tidak ditemukan baris siswa yang dapat diimport.', 'error');
+
+      Swal.fire({
+        title: 'Import Data Siswa?',
+        html: `Sebanyak <b>${rows.length}</b> baris siswa akan diproses.<br>
+               NIS yang sudah ada akan diperbarui tanpa menghapus penempatan kelompok/meja.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Ya, Import',
+        cancelButtonText: 'Batal'
+      }).then(result => {
+        if(!result.isConfirmed) return;
+
+        showLoader();
+        google.script.run
+          .withSuccessHandler(res => {
+            hideLoader();
+            modalImportMurid.hide();
+
+            // Muat ulang data terbaru dari server agar state aplikasi konsisten.
+            google.script.run.withSuccessHandler(data => {
+              appData.murid = data.students || [];
+              appData.kelompok = data.groups || [];
+              appData.meja = data.tables || [];
+              appData.soal = data.questions || [];
+              appData.classes = data.classes || appData.classes;
+              refreshClassOptions();
+              renderMurid();
+              updateDashboard();
+            }).getTournamentData(currentClass);
+
+            Swal.fire({
+              icon: 'success',
+              title: 'Import Berhasil',
+              html: `<b>${res.inserted}</b> siswa baru ditambahkan.<br>
+                     <b>${res.updated}</b> siswa diperbarui.<br>
+                     <b>${res.skipped}</b> baris dilewati.`
+            });
+          })
+          .withFailureHandler(err => {
+            hideLoader();
+            Swal.fire('Gagal Import', err.message || String(err), 'error');
+          })
+          .importStudentsFromText(text);
+      });
+    }
+
+    function downloadTemplateMurid() {
+      // Buat file Excel asli (.xlsx), bukan file teks yang hanya diberi ekstensi Excel.
+      if (typeof XLSX === 'undefined') {
+        return Swal.fire('Library Excel Belum Tersedia', 'Periksa koneksi internet, lalu coba unduh template kembali.', 'error');
+      }
+
+      const template = [
+        ['No','NIS','Nama','Kelas','JK','Kemampuan'],
+        [1,'1001','Nama Siswa 1','X-1','L','Tinggi'],
+        [2,'1002','Nama Siswa 2','X-1','P','Sedang'],
+        [3,'1003','Nama Siswa 3','X-1','L','Rendah']
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(template);
+      ws['!cols'] = [
+        {wch:8}, {wch:18}, {wch:28}, {wch:14}, {wch:10}, {wch:16}
+      ];
+      ws['!autofilter'] = {ref: 'A1:F' + template.length};
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Data Murid');
+      XLSX.writeFile(wb, 'Template_Import_Murid_TGT.xlsx');
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;'
+      }[ch]));
+    }
+
+    // --- MODULE: KELOMPOK ASAL ---
+    function generateKelompokUI() {
+      let n = document.getElementById('input-jumlah-kelompok').value;
+      appData.kelompok = [];
+      for(let i=1; i<=n; i++) {
+        // ID sementara di UI tetap sederhana; saat disimpan server mengubahnya
+        // menjadi ID dinamis, misalnya XII-A1 -> XIIA1_K1.
+        appData.kelompok.push({ID: 'K'+i, Nama_Kelompok: 'Kelompok ' + i, Kelas: currentClass});
+      }
+      renderKelompokSelector();
+    }
+
+    function renderKelompokSelector() {
+      const badge = document.getElementById('badge-kelas-kelompok'); if(badge) badge.textContent = currentClass ? 'Kelas ' + currentClass : '';
+      let container = document.getElementById('kelompok-editor-container');
+      if(appData.kelompok.length === 0) { container.innerHTML = '<p class="text-muted">Buat template kelompok terlebih dahulu.</p>'; return; }
+      
+      let html = '<div class="row">';
+      appData.murid.forEach(m => {
+        let bColor = m.Kemampuan === 'Tinggi' ? 'success' : (m.Kemampuan === 'Sedang' ? 'warning' : 'danger');
+        html += `<div class="col-md-3 mb-2">
+          <div class="card p-2 border-primary" style="font-size:0.9rem;">
+            <b>${m.Nama}</b> <span class="badge bg-${bColor} mb-1">${m.Kemampuan}</span>
+            <select class="form-select form-select-sm sel-kelompok" data-murid="${m.ID}">
+              <option value="">-- Pilih Kelompok --</option>`;
+              appData.kelompok.forEach((k, idx) => {
+                const mid = String(m.ID_Kelompok || '').trim();
+                const kid = String(k.ID || '').trim();
+                // Data lama mungkin masih menyimpan K1/K2 sedangkan ID kelompok
+                // sekarang berbentuk KELAS_K1/KELAS_K2. Keduanya harus dianggap sama.
+                const shortId = 'K' + (idx + 1);
+                const kidShort = (kid.match(/(?:^|_)(K\d+)$/i) || [,''])[1].toUpperCase();
+                const selected = mid && (mid === kid || mid === shortId || mid.toUpperCase() === kidShort) ? 'selected' : '';
+                html += `<option value="${k.ID}" ${selected}>${k.Nama_Kelompok}</option>`;
+              });
+        html += `</select></div></div>`;
+      });
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    function saveKelompok() {
+      let map = {};
+      document.querySelectorAll('.sel-kelompok').forEach(sel => {
+        map[sel.getAttribute('data-murid')] = sel.value;
+      });
+      
+      showLoader();
+      google.script.run.withSuccessHandler(() => {
+        // Setelah tersimpan, gunakan kembali ID dinamis kelas pada state lokal.
+        const classId = String(currentClass || 'KELAS').replace(/[^a-zA-Z0-9]+/g, '').toUpperCase() || 'KELAS';
+        const alias = {};
+        appData.kelompok.forEach((k, i) => {
+          const canonical = classId + '_K' + (i + 1);
+          alias['K' + (i + 1)] = canonical;
+          alias[String(k.ID || '').trim()] = canonical;
+          k.ID = canonical;
+          k.Kelas = currentClass;
+        });
+        appData.murid.forEach(m => {
+          const selected = String(map[m.ID] || '').trim();
+          m.ID_Kelompok = selected ? (alias[selected] || selected) : '';
+        });
+        renderKelompokSelector();
+        hideLoader(); Swal.fire('Sukses', 'Kelompok berhasil disimpan', 'success'); updateDashboard();
+      }).saveGroups(appData.kelompok, map, currentClass);
+    }
+
+    // --- MODULE: MEJA TURNAMEN ---
+    function generateMejaUI() {
+      let n = document.getElementById('input-jumlah-meja').value;
+      appData.meja = [];
+      for(let i=1; i<=n; i++) { 
+        let kat = i <= n/3 ? 'Tinggi' : (i <= 2*n/3 ? 'Sedang' : 'Rendah');
+        let pkt = kat === 'Tinggi' ? 'A' : (kat === 'Sedang' ? 'B' : 'C');
+        appData.meja.push({ID: 'M'+i, Nama_Meja: 'Meja ' + i, Kategori: kat, Paket: pkt, Kelas: currentClass}); 
+      }
+      renderMejaSelector();
+    }
+
+    function autoSetMejaBySystem() {
+      if(!requireActiveClass()) return;
+      const students = appData.murid || [];
+      const groupIds = [...new Set(students.map(m => m.ID_Kelompok).filter(Boolean))];
+      const n = Math.max(1, parseInt(document.getElementById('input-jumlah-meja').value || '1', 10));
+      const target = Math.max(1, parseInt(document.getElementById('input-anggota-meja').value || Math.ceil(students.length / n), 10));
+
+      if(!students.length) return Swal.fire('Data Murid Kosong', 'Import atau masukkan murid terlebih dahulu.', 'warning');
+      if(!groupIds.length || students.some(m => !m.ID_Kelompok)) {
+        return Swal.fire('Kelompok Asal Belum Lengkap', 'Semua murid harus sudah memiliki Kelompok Asal sebelum Setting oleh Sistem dijalankan.', 'warning');
+      }
+      if(n > students.length) {
+        return Swal.fire('Jumlah Meja Terlalu Banyak', `Jumlah meja (${n}) melebihi jumlah murid (${students.length}). Kurangi jumlah meja.`, 'warning');
+      }
+
+      const abilityOrder = ['Tinggi','Sedang','Rendah'];
+      const buckets = {};
+      abilityOrder.forEach(a => buckets[a] = []);
+      students.forEach(m => {
+        const a = abilityOrder.includes(m.Kemampuan) ? m.Kemampuan : 'Sedang';
+        buckets[a].push(m);
+      });
+
+      // Setiap meja maksimal memuat satu murid dari satu Kelompok Asal.
+      const maxPerTable = Math.min(target, groupIds.length);
+      const counts = abilityOrder.map(a => buckets[a].length);
+      const minTables = counts.map(c => c ? Math.ceil(c / maxPerTable) : 0);
+      const minTotal = minTables.reduce((a,b)=>a+b,0);
+      if(minTotal > n) {
+        return Swal.fire({
+          icon:'warning', title:'Kombinasi Setting Tidak Memungkinkan',
+          html:`Dengan <b>${n} meja</b>, target <b>${target} anggota/meja</b>, dan aturan <b>satu Kelompok Asal per meja</b>, sistem membutuhkan minimal <b>${minTotal} meja</b>.<br><br>Kurangi target anggota/meja atau tambah jumlah meja.`
+        });
+      }
+
+      // Alokasikan jumlah meja per kemampuan berdasarkan kebutuhan kapasitas.
+      const tableCounts = {Tinggi:minTables[0], Sedang:minTables[1], Rendah:minTables[2]};
+      let remaining = n - minTotal;
+      while(remaining > 0) {
+        let best = abilityOrder.filter(a => buckets[a].length > 0)
+          .sort((a,b) => {
+            const ra = buckets[a].length / Math.max(1, tableCounts[a]);
+            const rb = buckets[b].length / Math.max(1, tableCounts[b]);
+            return rb - ra;
+          })[0];
+        if(!best) best = 'Sedang';
+        tableCounts[best]++;
+        remaining--;
+      }
+
+      const newTables = [];
+      let tableNo = 1;
+      abilityOrder.forEach(a => {
+        const packet = a === 'Tinggi' ? 'A' : (a === 'Sedang' ? 'B' : 'C');
+        for(let i=0; i<tableCounts[a]; i++) {
+          newTables.push({ID:'M'+tableNo, Nama_Meja:'Meja '+tableNo, Kategori:a, Paket:packet, Kelas:currentClass});
+          tableNo++;
+        }
+      });
+
+      const assignments = {};
+      const placement = {};
+      newTables.forEach(t => placement[t.ID] = {count:0, groups:{}});
+
+      // Tempatkan dari kelompok asal yang paling sering muncul terlebih dahulu.
+      abilityOrder.forEach(a => {
+        const tables = newTables.filter(t => t.Kategori === a);
+        const list = buckets[a].slice().sort((x,y) => {
+          const fx = buckets[a].filter(z=>z.ID_Kelompok===x.ID_Kelompok).length;
+          const fy = buckets[a].filter(z=>z.ID_Kelompok===y.ID_Kelompok).length;
+          return fy-fx || String(x.Nama).localeCompare(String(y.Nama));
+        });
+        list.forEach(student => {
+          const candidates = tables.filter(t => !placement[t.ID].groups[student.ID_Kelompok] && placement[t.ID].count < target);
+          if(!candidates.length) {
+            // Coba meja dengan kapasitas tersisa, tetap melarang kelompok asal yang sama.
+            const alt = tables.filter(t => !placement[t.ID].groups[student.ID_Kelompok]);
+            if(!alt.length) throw new Error('Konfigurasi tidak dapat memenuhi aturan satu Kelompok Asal per meja untuk kemampuan '+a+'.');
+            candidates.push(...alt);
+          }
+          candidates.sort((x,y) => placement[x.ID].count - placement[y.ID].count);
+          const table = candidates[0];
+          assignments[student.ID] = table.ID;
+          placement[table.ID].count++;
+          placement[table.ID].groups[student.ID_Kelompok] = true;
+        });
+      });
+
+      appData.meja = newTables;
+      appData.murid.forEach(m => m.ID_Meja = assignments[m.ID] || '');
+      renderMejaSelector();
+
+      const summary = newTables.map(t => {
+        const names = appData.murid.filter(m=>m.ID_Meja===t.ID).map(m=>m.Nama).join(', ');
+        return `<li><b>${escapeHtml(t.Nama_Meja)}</b> — ${escapeHtml(t.Kategori)} / Paket ${t.Paket}: ${escapeHtml(names || 'kosong')}</li>`;
+      }).join('');
+      Swal.fire({
+        icon:'success', title:'Setting Meja Berhasil',
+        html:`Sistem telah menyusun <b>${newTables.length} meja</b> berdasarkan kemampuan dan Kelompok Asal.<br><ul class="text-start mt-3 mb-0">${summary}</ul>`,
+        width:800, confirmButtonText:'Lanjut Simpan'
+      }).then(r => { if(r.isConfirmed) saveMeja(); });
+    }
+
+    function renderMejaSelector() {
+      const badge = document.getElementById('badge-kelas-meja'); if(badge) badge.textContent = currentClass ? 'Kelas ' + currentClass : '';
+      let container = document.getElementById('meja-editor-container');
+      if(appData.meja.length === 0) { container.innerHTML = '<p class="text-muted">Buat template meja terlebih dahulu.</p>'; return; }
+      
+      // Settings UI for Meja
+      let setupHtml = '<h5>Konfigurasi Kategori Meja</h5><div class="row mb-4">';
+      appData.meja.forEach((t, i) => {
+        setupHtml += `<div class="col-md-2 mb-2 p-1">
+          <input type="text" class="form-control form-control-sm mb-1" id="mname-${i}" value="${t.Nama_Meja}">
+          <select class="form-select form-select-sm mb-1" id="mkat-${i}" onchange="document.getElementById('mpak-${i}').value = this.value==='Tinggi'?'A':(this.value==='Sedang'?'B':'C')">
+            <option value="Tinggi" ${t.Kategori==='Tinggi'?'selected':''}>Tinggi</option>
+            <option value="Sedang" ${t.Kategori==='Sedang'?'selected':''}>Sedang</option>
+            <option value="Rendah" ${t.Kategori==='Rendah'?'selected':''}>Rendah</option>
+          </select>
+          <select class="form-select form-select-sm" id="mpak-${i}">
+            <option value="A" ${t.Paket==='A'?'selected':''}>Paket A</option><option value="B" ${t.Paket==='B'?'selected':''}>Paket B</option><option value="C" ${t.Paket==='C'?'selected':''}>Paket C</option>
+          </select>
+          <div class="small text-muted mt-1"><i class="fas fa-key"></i> Username: <b>MEJA_${escapeHtml(String(t.ID).replace(/[^A-Za-z0-9]/g,''))}</b></div>
+        </div>`;
+      });
+      setupHtml += '</div><hr><h5>Penempatan Pemain</h5><div class="row">';
+      
+      const groupNameById = {};
+      (appData.kelompok || []).forEach(k => groupNameById[k.ID] = k.Nama_Kelompok);
+
+      setupHtml += `<div class="alert alert-info py-2"><i class="fas fa-users"></i> <b>Perhatikan Kelompok Asal:</b> setiap meja turnamen harus diisi oleh murid dari <b>kelompok asal yang berbeda</b>. Nama kelompok asal ditampilkan pada setiap kartu murid.</div>`;
+
+      appData.murid.forEach(m => {
+        let bColor = m.Kemampuan === 'Tinggi' ? 'success' : (m.Kemampuan === 'Sedang' ? 'warning' : 'danger');
+        const groupName = m.ID_Kelompok ? (groupNameById[m.ID_Kelompok] || m.ID_Kelompok) : 'Belum ada kelompok';
+        const groupBadge = m.ID_Kelompok
+          ? `<span class="badge bg-primary ms-1"><i class="fas fa-users"></i> ${escapeHtml(groupName)}</span>`
+          : `<span class="badge bg-secondary ms-1">Belum ada kelompok</span>`;
+        setupHtml += `<div class="col-md-3 mb-2">
+          <div class="card p-2 border-danger h-100" style="font-size:0.9rem;">
+            <div><b>${escapeHtml(m.Nama)}</b></div>
+            <div class="mb-2"><span class="badge bg-${bColor}">${escapeHtml(m.Kemampuan)}</span>${groupBadge}</div>
+            <select class="form-select form-select-sm sel-meja" data-murid="${m.ID}">
+              <option value="">-- Pilih Meja --</option>`;
+              appData.meja.forEach(t => {
+                let sel = (m.ID_Meja === t.ID) ? 'selected' : '';
+                setupHtml += `<option value="${t.ID}" ${sel}>${escapeHtml(t.Nama_Meja)} (${escapeHtml(t.Kategori)})</option>`;
+              });
+        setupHtml += `</select></div></div>`;
+      });
+      setupHtml += '</div>';
+      container.innerHTML = setupHtml;
+    }
+
+    function saveMeja() {
+      // Update meja config
+      appData.meja.forEach((t, i) => {
+        t.Nama_Meja = document.getElementById(`mname-${i}`).value;
+        t.Kategori = document.getElementById(`mkat-${i}`).value;
+        t.Paket = document.getElementById(`mpak-${i}`).value;
+      });
+
+      let map = {};
+      document.querySelectorAll('.sel-meja').forEach(sel => { map[sel.getAttribute('data-murid')] = sel.value; });
+
+      // Validasi: satu meja tidak boleh berisi dua murid dari Kelompok Asal yang sama.
+      const studentsById = {};
+      appData.murid.forEach(m => studentsById[m.ID] = m);
+      const tableGroups = {};
+      const duplicateGroups = [];
+      document.querySelectorAll('.sel-meja').forEach(sel => {
+        const student = studentsById[sel.getAttribute('data-murid')];
+        const tableId = sel.value;
+        if(!student || !tableId || !student.ID_Kelompok) return;
+        if(!tableGroups[tableId]) tableGroups[tableId] = {};
+        if(tableGroups[tableId][student.ID_Kelompok]) {
+          duplicateGroups.push({
+            tableId: tableId,
+            tableName: (appData.meja.find(t => t.ID === tableId) || {}).Nama_Meja || tableId,
+            groupId: student.ID_Kelompok,
+            groupName: (appData.kelompok.find(k => k.ID === student.ID_Kelompok) || {}).Nama_Kelompok || student.ID_Kelompok
+          });
+        } else {
+          tableGroups[tableId][student.ID_Kelompok] = true;
+        }
+      });
+
+      if(duplicateGroups.length) {
+        const detail = [...new Map(duplicateGroups.map(d => [d.tableId + '|' + d.groupId, d])).values()]
+          .map(d => `<li><b>${escapeHtml(d.tableName)}</b>: ${escapeHtml(d.groupName)}</li>`).join('');
+        return Swal.fire({
+          icon: 'warning',
+          title: 'Penempatan Belum Valid',
+          html: `Dalam satu meja turnamen terdapat lebih dari satu murid dari kelompok asal yang sama.<br><ul class="text-start mt-2 mb-0">${detail}</ul><div class="mt-2">Pindahkan salah satu murid ke meja lain.</div>`
+        });
+      }
+
+      showLoader();
+      google.script.run.withSuccessHandler(() => {
+        
+        Swal.fire({
+          icon: 'success', 
+          title: 'Sukses', 
+          text: 'Penempatan meja berhasil disimpan.', 
+          timer: 1500, 
+          showConfirmButton: false
+        });
+        loadAllData(currentClass); // Langsung memuat data terbaru tanpa jeda pop-up putus
+      }).withFailureHandler(err => {
+        hideLoader();
+        Swal.fire('Gagal Menyimpan', err.message || String(err), 'error');
+      }).saveTables(appData.meja, map, currentClass);
+    }
+
+    // --- MODULE: BANK SOAL ---
+    let modalSoal;
+    function openModalSoal(id = null) {
+      if(!modalSoal) modalSoal = new bootstrap.Modal(document.getElementById('modalSoal'));
+      document.getElementById('form-soal').reset();
+      document.getElementById('s-id').value = '';
+      document.getElementById('s-materi').value = '';
+      refreshQuestionMaterialOptions();
+      toggleSoalType();
+      if(id) {
+        const q = appData.soal.find(x => x.ID === id);
+        if(q) {
+          document.getElementById('s-id').value = q.ID;
+          document.getElementById('s-materi').value = q.Materi || '';
+          document.getElementById('s-paket').value = q.Paket;
+          document.getElementById('s-jenis').value = q.Jenis;
+          document.getElementById('s-tanya').value = q.Pertanyaan;
+          document.getElementById('s-a').value = q.OpsiA;
+          document.getElementById('s-b').value = q.OpsiB;
+          document.getElementById('s-c').value = q.OpsiC;
+          document.getElementById('s-d').value = q.OpsiD;
+          document.getElementById('s-e').value = q.OpsiE;
+          document.getElementById('s-kunci').value = q.Kunci;
+          document.getElementById('s-jawab').value = q.JawabanSingkat;
+          document.getElementById('s-bahas').value = q.Pembahasan;
+          toggleSoalType();
+        }
+      }
+      modalSoal.show();
+    }
+
+    function toggleSoalType() {
+      let type = document.getElementById('s-jenis').value;
+      document.getElementById('pg-options').style.display = type === 'PG' ? 'block' : 'none';
+      document.getElementById('singkat-options').style.display = type === 'Singkat' ? 'block' : 'none';
+    }
+
+    function submitSoal() {
+      const data = {
+        ID: document.getElementById('s-id').value, Materi: document.getElementById('s-materi').value.trim(), Paket: document.getElementById('s-paket').value,
+        Jenis: document.getElementById('s-jenis').value, Pertanyaan: document.getElementById('s-tanya').value,
+        OpsiA: document.getElementById('s-a').value, OpsiB: document.getElementById('s-b').value,
+        OpsiC: document.getElementById('s-c').value, OpsiD: document.getElementById('s-d').value,
+        OpsiE: document.getElementById('s-e').value, Kunci: document.getElementById('s-kunci').value,
+        JawabanSingkat: document.getElementById('s-jawab').value, Pembahasan: document.getElementById('s-bahas').value
+      };
+      
+      showLoader();
+      google.script.run.withSuccessHandler(res => {
+        // Setelah simpan, ambil ulang BANK_SOAL dari server agar daftar yang tampil
+        // selalu mencerminkan data terbaru, termasuk soal hasil import.
+        google.script.run.withSuccessHandler(questions => {
+          appData.soal = questions || [];
+          modalSoal.hide();
+          renderSoalTable(data.Paket);
+          updateDashboard();
+          hideLoader();
+          Swal.fire('Sukses', 'Soal berhasil disimpan dan daftar soal telah diperbarui.', 'success');
+        }).withFailureHandler(err => {
+          hideLoader();
+          Swal.fire('Gagal Memuat Soal', err.message || String(err), 'error');
+        }).getQuestions();
+      }).withFailureHandler(err => {
+        hideLoader();
+        Swal.fire('Gagal Menyimpan', err.message || String(err), 'error');
+      }).saveQuestion(data);
+    }
+
+    function hapusSoal(id, paket) {
+      Swal.fire({ title: 'Hapus Soal?', icon: 'warning', showCancelButton: true }).then(res => {
+        if(res.isConfirmed) {
+          showLoader();
+          google.script.run.withSuccessHandler(() => {
+            appData.soal = appData.soal.filter(s => s.ID !== id);
+            renderSoalTable(paket); updateDashboard(); hideLoader();
+          }).deleteQuestion(id);
+        }
+      });
+    }
+
+    function refreshQuestionMaterialOptions(){
+      const materials = [...new Set((appData.questionMaterials || appData.soal.map(q=>String(q.Materi||'').trim())).filter(Boolean))].sort((a,b)=>a.localeCompare(b, undefined, {numeric:true, sensitivity:'base'}));
+      appData.questionMaterials = materials;
+      const filter = document.getElementById('filter-soal-materi');
+      const current = filter ? filter.value : '';
+      if(filter){ filter.innerHTML = '<option value="">Semua Materi</option>' + materials.map(m=>`<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join(''); if(materials.includes(current)) filter.value=current; }
+      const list = document.getElementById('materi-list-soal');
+      if(list) list.innerHTML = materials.map(m=>`<option value="${escapeHtml(m)}"></option>`).join('');
+    }
+
+    function renderSoalTable(paket) {
+      refreshQuestionMaterialOptions();
+      const selectedMateri = document.getElementById('filter-soal-materi')?.value || '';
+      let filterSoal = appData.soal.filter(s => String(s.Paket||'').toUpperCase() === String(paket||'').toUpperCase());
+      if(selectedMateri) filterSoal = filterSoal.filter(s => String(s.Materi||'').trim() === selectedMateri);
+      let html = '';
+      filterSoal.forEach((s, i) => {
+        let ans = s.Jenis === 'PG' ? s.Kunci : s.JawabanSingkat;
+        html += `<tr><td>${i+1}</td><td><span class="badge bg-light text-dark">${escapeHtml(s.Materi || 'Tanpa Materi')}</span></td><td>${escapeHtml(s.Jenis||'')}</td><td class="mathjax-content">${escapeHtml(String(s.Pertanyaan||'')).substring(0,100)}...</td><td><b>${escapeHtml(ans||'')}</b></td><td><button class="btn btn-sm btn-info text-white" onclick="openModalSoal('${s.ID}')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-danger" onclick="hapusSoal('${s.ID}', '${paket}')"><i class="fas fa-trash"></i></button></td></tr>`;
+      });
+      document.getElementById('tbody-soal').innerHTML = html || '<tr><td colspan="6" class="text-muted text-center">Belum ada soal untuk filter Materi dan Paket ini.</td></tr>';
+      setTimeout(reTypeset, 100);
+    }
+
+    let modalImport;
+    function openModalImport() {
+      if(!modalImport) modalImport = new bootstrap.Modal(document.getElementById('modalImport'));
+      document.getElementById('paste-excel').value = '';
+      document.getElementById('paste-word').value = '';
+      modalImport.show();
+    }
+
+    function prosesImport(type) {
+      let text = document.getElementById('paste-' + type).value;
+      if(!text.trim()) return Swal.fire('Error', 'Data kosong!', 'error');
+      
+      showLoader();
+      google.script.run.withSuccessHandler(count => {
+        // Refresh data soal langsung dari server setelah import tanpa reload halaman.
+        google.script.run.withSuccessHandler(questions => {
+          appData.soal = questions || [];
+          appData.questionMaterials = [...new Set(appData.soal.map(q=>String(q.Materi||'').trim()).filter(Boolean))];
+          modalImport.hide();
+          refreshQuestionMaterialOptions();
+          renderSoalTable(document.querySelector('#soalTabs .nav-link.active')?.getAttribute('data-paket') || 'A');
+          updateDashboard();
+          hideLoader();
+          Swal.fire('Sukses', `Berhasil import ${count} soal. Daftar soal telah diperbarui dan langsung ditampilkan.`, 'success');
+        }).withFailureHandler(err => {
+          hideLoader();
+          Swal.fire('Gagal Memuat Soal', err.message || String(err), 'error');
+        }).getQuestions();
+      }).withFailureHandler(err => {
+        hideLoader();
+        Swal.fire('Gagal Import', err.message || String(err), 'error');
+      }).importQuestionsFromText(text, type);
+    }
+
+    // --- MODULE: TURNAMEN (GAMEPLAY) ---
+    function refreshTournamentPage(){
+      if(!userSession) return showLoginScreen();
+      const kelasRefresh = String(currentClass || '').trim();
+      if(!kelasRefresh && String(userSession.role || '').trim().toUpperCase() === 'GURU'){
+        return Swal.fire({icon:'info',title:'Kelas Aktif Belum Dipilih',text:'Pilih Kelas Aktif terlebih dahulu sebelum melakukan refresh.'});
+      }
+      showLoader();
+      // Refresh hanya memperbarui data dari server; jangan mengosongkan appData terlebih dahulu.
+      // Ini menjaga Data Murid, Kelompok Asal, Meja Turnamen, dan Bank Soal tetap tersedia.
+      google.script.run.withSuccessHandler(data=>{
+        data = data || {};
+        if(Array.isArray(data.students)) appData.murid = data.students;
+        if(Array.isArray(data.groups)) appData.kelompok = data.groups;
+        if(Array.isArray(data.tables)) appData.meja = data.tables;
+        if(Array.isArray(data.questions)) appData.soal = data.questions;
+        if(data.config) appData.config = data.config;
+        if(Array.isArray(data.classes)) appData.classes = data.classes;
+        appData.session = data.session || null;
+        refreshClassOptions();
+        updateDashboard();
+        syncServerClock(()=>{
+          hideLoader();
+          // Render ulang halaman yang sedang aktif, tanpa menghapus data halaman lain.
+          if(document.getElementById('page-murid')?.classList.contains('active')) renderMurid();
+          if(document.getElementById('page-kelompok')?.classList.contains('active')) renderKelompokSelector();
+          if(document.getElementById('page-meja')?.classList.contains('active')) renderMejaSelector();
+          if(document.getElementById('page-turnamen')?.classList.contains('active')) renderTurnamenSetup();
+          Swal.fire({icon:'success',title:'Data Diperbarui',text:'Data murid, kelompok, meja, soal, dan status turnamen telah diperbarui.',timer:1200,showConfirmButton:false});
+        });
+      }).withFailureHandler(err=>{
+        hideLoader();
+        Swal.fire('Gagal Refresh',err.message||String(err),'error');
+      }).getTournamentData(kelasRefresh);
+    }
+
+    function refreshTournamentMaterialOptions(){
+      const select = document.getElementById('select-materi-turnamen');
+      const info = document.getElementById('materi-turnamen-info');
+      if(!select) return;
+
+      const previous = String(select.value || '').trim();
+      const materials = [...new Set((appData.questionMaterials || appData.soal || [])
+        .map(q => typeof q === 'string' ? q : String(q.Materi || '').trim())
+        .map(v => String(v || '').trim())
+        .filter(Boolean))]
+        .sort((a,b)=>a.localeCompare(b, undefined, {numeric:true, sensitivity:'base'}));
+
+      appData.questionMaterials = materials;
+      select.innerHTML = '<option value="">Semua Materi</option>' +
+        materials.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+
+      if(previous && materials.includes(previous)) select.value = previous;
+      else if(!previous) select.value = '';
+      else select.value = '';
+
+      const selected = String(select.value || '').trim();
+      const available = selected
+        ? (appData.soal || []).filter(q => String(q.Materi || '').trim() === selected)
+        : (appData.soal || []);
+
+      if(info){
+        if(selected){
+          const byPackage = {};
+          available.forEach(q=>{
+            const paket=String(q.Paket || '').trim().toUpperCase() || '-';
+            byPackage[paket]=(byPackage[paket]||0)+1;
+          });
+          const detail=Object.keys(byPackage).sort().map(k=>`Paket ${escapeHtml(k)}: <b>${byPackage[k]}</b>`).join(' · ');
+          info.innerHTML = `<b>${escapeHtml(selected)}</b><br><span class="text-muted">${available.length} soal tersedia${detail ? ' · ' + detail : ''}</span>`;
+        }else{
+          info.innerHTML = `<b>Semua Materi</b><br><span class="text-muted">${available.length} soal tersedia</span>`;
+        }
+      }
+    }
+
+    function onTournamentMaterialChange(){
+      refreshTournamentMaterialOptions();
+    }
+
+    function renderTurnamenSetup() {
+      const badge = document.getElementById('badge-kelas-turnamen'); if(badge) badge.textContent = currentClass || '';
+      refreshTournamentMaterialOptions();
+      document.getElementById('turnamen-setup').style.display = 'block';
+      document.getElementById('turnamen-gameplay').style.display = 'none';
+      const isGuru = !!userSession && String(userSession.role || '').trim().toUpperCase() === 'GURU';
+      const sessionPanel = document.getElementById('session-serentak-panel');
+      if(sessionPanel) sessionPanel.style.display = isGuru ? 'block' : 'none';
+      const visibleTables = isGuru ? appData.meja : appData.meja.filter(t => String(t.ID) === String(userSession?.idMeja || ''));
+      const monitor=document.getElementById('monitor-serentak-panel');
+      if(monitor) monitor.style.display=isGuru ? 'block' : 'none';
+      if(isGuru){ refreshLiveMonitor(); if(monitorInterval) clearInterval(monitorInterval); monitorInterval=setInterval(refreshLiveMonitor,5000); }
+      else if(monitorInterval){ clearInterval(monitorInterval); monitorInterval=null; }
+
+      const info = document.getElementById('session-serentak-info');
+      if(info) {
+        if(appData.session && ['SCHEDULED','RUNNING','PAUSED'].includes(appData.session.Status)) {
+          const remain = Math.max(0, Math.ceil((appData.session.StartAtMs - serverNow()) / 1000));
+          info.innerHTML = appData.session.Status === 'PAUSED'
+            ? `<span class="text-warning"><b>${escapeHtml(appData.session.Nama_Turnamen||'Sesi Turnamen')}</b> — Sesi DIHENTIKAN SEMENTARA oleh guru. Waktu berhenti. Pilih <b>Lanjutkan Turnamen</b> untuk meneruskan.</span>`
+            : (appData.session.Status === 'SCHEDULED'
+            ? `<b>${escapeHtml(appData.session.Nama_Turnamen||'Sesi Turnamen')}</b> sudah dibuka. Semua meja mulai pada <b>${remain}</b> detik lagi. Durasi: <b>${Math.round(appData.session.DurationSec/60)} menit</b>.`
+            : `<b>${escapeHtml(appData.session.Nama_Turnamen||'Sesi Turnamen')}</b> sedang berjalan. Durasi: <b>${Math.round(appData.session.DurationSec/60)} menit</b>.`);
+        } else info.textContent = isGuru ? 'Belum ada sesi serentak. Guru dapat membuka meja satu per satu atau memulai semua meja serentak.' : 'Menunggu guru membuka turnamen.';
+      }
+
+      const controls = document.getElementById('guru-session-controls');
+      if(controls) { controls.style.display = isGuru ? 'flex' : 'none'; controls.setAttribute('aria-hidden', isGuru ? 'false' : 'true'); }
+      // Pengaman tambahan: akun MEJA/MURID tidak boleh menampilkan kontrol sesi guru.
+      if(!isGuru){
+        ['startTournamentSerentak','resumeTournamentSerentak','stopTournamentSerentak','endTournamentSerentak'].forEach(fn=>{
+          document.querySelectorAll(`[onclick^="${fn}("]`).forEach(btn=>btn.style.display='none');
+        });
+      }
+      let html = '';
+      visibleTables.forEach(t => {
+        const pCount = appData.murid.filter(m => m.ID_Meja === t.ID).length;
+        const tableSession = appData.session && ['SCHEDULED','RUNNING','PAUSED'].includes(appData.session.Status) ? appData.session : null;
+        const hasOpen = !!tableSession;
+        const canStart = isGuru;
+        const canEnter = isGuru || hasOpen;
+        html += `<div class="col-md-4 col-lg-3 mb-3"><div class="card h-100 bg-white border-primary">
+          <div class="card-body text-center">
+            <i class="fas fa-users fa-3x text-primary mb-2"></i><h5>${escapeHtml(t.Nama_Meja)}</h5>
+            <span class="badge bg-info">${escapeHtml(t.Kategori)} - Paket ${escapeHtml(t.Paket)}</span>
+            <p class="mt-2 text-muted">${pCount} Pemain</p>
+            <div id="table-access-${escapeHtml(t.ID)}" class="d-grid gap-2">
+              ${canStart ? `${hasOpen ? '<span class="badge bg-success mb-2">Turnamen Dibuka</span>' : '<span class="badge bg-secondary mb-2">Belum Dibuka</span>'}<button class="btn btn-primary" onclick="openTableAndStart('${escapeHtml(t.ID)}')"><i class="fas fa-play"></i> ${hasOpen?'Buka / Mulai Ulang Meja':'Mulai Turnamen'}</button>` : '<span class="badge bg-secondary mb-2">Memeriksa akses...</span><button class="btn btn-outline-secondary" disabled><i class="fas fa-spinner fa-spin"></i> Memeriksa</button>'}
+            </div>
+          </div></div></div>`;
+      });
+      document.getElementById('grid-meja-turnamen').innerHTML = html || '<div class="alert alert-warning">Meja turnamen untuk akun ini belum tersedia.</div>';
+      refreshTableAccessStates(visibleTables);
+    }
+
+    function refreshTableAccessStates(visibleTables){
+      if(!userSession || userSession.role==='GURU') return;
+      visibleTables.forEach(t=>{
+        google.script.run.withSuccessHandler(session=>updateTableAccessCard(t,session)).withFailureHandler(()=>{}).getTableTournamentSession(currentClass,t.ID);
+      });
+    }
+    function updateTableAccessCard(t,session){
+      const box=document.getElementById('table-access-'+t.ID); if(!box) return;
+      const open=session && ['SCHEDULED','RUNNING'].includes(session.Status);
+      box.innerHTML=open
+        ? `<span class="badge bg-success mb-2">Turnamen Dibuka</span><button class="btn btn-success" onclick="initGame('${escapeHtml(t.ID)}')"><i class="fas fa-gamepad"></i> Masuk Turnamen</button>`
+        : `<span class="badge bg-secondary mb-2">Belum Dibuka</span><button class="btn btn-outline-secondary" disabled><i class="fas fa-lock"></i> Menunggu Dibuka Guru</button>`;
+    }
+
+    function refreshLiveMonitor(){
+      if(!userSession || userSession.role!=='GURU' || !currentClass) return;
+      google.script.run.withSuccessHandler(states=>renderLiveMonitor(states||[])).withFailureHandler(()=>{}).getLiveTournamentStates(currentClass,appData.session?.ID_Sesi || '');
+    }
+    function renderLiveMonitor(states){
+      const grid=document.getElementById('monitor-grid'); if(!grid) return;
+      const now=Date.now();
+      grid.innerHTML=appData.meja.map(t=>{
+        const st=states.find(x=>x.ID_Meja===t.ID); const players=appData.murid.filter(m=>m.ID_Meja===t.ID);
+        const stale=!st || (now-(st.UpdatedAtMs||0)>7000);
+        const q=st?.Question?.Pertanyaan || (st ? 'Menunggu pembaruan...' : 'Belum dimulai');
+        const turn=st && players[st.CurrentTurn] ? players[st.CurrentTurn].Nama : '-';
+        const cards=(st?.Players||[]).map(p=>`<span class="badge bg-success me-1">${escapeHtml(p.Nama)}: ${p.Cards||0}</span>`).join('');
+        return `<div class="col-lg-4 col-md-6 mb-3"><div class="card monitor-card ${!stale?'live':''} h-100"><div class="card-body"><div class="d-flex justify-content-between"><h6 class="fw-bold mb-1">${escapeHtml(t.Nama_Meja)}</h6><span><i class="monitor-dot ${!stale?'live':''}"></i> ${stale?'Offline/Belum mulai':'Live'}</span></div><small class="text-muted">${escapeHtml(t.Kategori)} · Paket ${escapeHtml(t.Paket)}</small><hr><div><b>Soal:</b> ${st?.CurrentQ>=0?st.CurrentQ+1:'-'}</div><div><b>Giliran:</b> ${escapeHtml(turn)}</div><div class="small mt-2 text-truncate" title="${escapeHtml(q)}">${escapeHtml(q)}</div><div class="mt-2">${cards || '<span class="text-muted">Belum ada data skor</span>'}</div></div></div></div>`;
+      }).join('');
+      const lu=document.getElementById('monitor-last-update'); if(lu) lu.textContent='Diperbarui '+new Date().toLocaleTimeString('id-ID');
+    }
+
+    function startTournamentSerentak() {
+      if(!requireActiveClass() || !userSession || userSession.role!=='GURU') return;
+      const emptyTables = appData.meja.filter(t => appData.murid.filter(m => m.ID_Meja === t.ID).length === 0);
+      if(emptyTables.length) return Swal.fire('Meja Belum Lengkap','Semua meja harus memiliki pemain sebelum turnamen serentak dimulai.','warning');
+      showLoader();
+      google.script.run.withSuccessHandler(session=>{
+        hideLoader(); appData.session=session; renderTurnamenSetup();
+        Swal.fire({icon:'success',title:'Turnamen Dijadwalkan Serentak',html:'Semua meja akan mulai bersama dalam <b>10 detik</b>.',timer:3500,showConfirmButton:false});
+      }).withFailureHandler(err=>{hideLoader();Swal.fire('Gagal Memulai',err.message||String(err),'error');}).startTournamentSession(currentClass,Number(appData.config.tgt_duration_sec||1200),document.getElementById('select-materi-turnamen')?.value||'');
+    }
+
+    function openTableAndStart(tableId){
+      if(!userSession || userSession.role!=='GURU') return;
+      showLoader();
+      google.script.run.withSuccessHandler(session=>{
+        hideLoader();
+        Swal.fire({icon:'success',title:'Turnamen Meja Dibuka',html:`${escapeHtml((appData.meja.find(t=>t.ID===tableId)||{}).Nama_Meja||tableId)} dibuka. Durasi <b>${Math.round(Number(session.DurationSec||1200)/60)} menit</b>.`,timer:1800,showConfirmButton:false});
+        initGame(tableId, session);
+      }).withFailureHandler(err=>{hideLoader();Swal.fire('Gagal Membuka Meja',err.message||String(err),'error');}).openTournamentTable(currentClass,tableId,Number(appData.config.tgt_duration_sec||1200),document.getElementById('select-materi-turnamen')?.value||'');
+    }
+
+    function stopTournamentSerentak() {
+      if(!requireActiveClass() || !userSession || userSession.role!=='GURU') return;
+      showLoader();
+      google.script.run.withSuccessHandler(()=>{
+        hideLoader(); refreshTournamentSession();
+        if(gameState.sessionId) setGamePaused(true);
+        Swal.fire('Sesi Dihentikan','Semua meja yang aktif dihentikan sementara. Waktu berhenti dan turnamen hanya dapat berjalan kembali setelah guru memilih Lanjutkan Turnamen.','info');
+      }).withFailureHandler(err=>{hideLoader();Swal.fire('Gagal Menghentikan Sesi',err.message||String(err),'error');}).pauseTournamentSession(currentClass);
+    }
+
+    function resumeTournamentSerentak(){
+      if(!requireActiveClass() || !userSession || userSession.role!=='GURU') return;
+      showLoader();
+      google.script.run.withSuccessHandler(res=>{
+        hideLoader();
+        if(gameState.sessionId) {
+          gamePausedByTeacher=false;
+          setGamePaused(false);
+          checkTeacherSession();
+        }
+        refreshTournamentSession();
+        Swal.fire({icon:'success',title:'Turnamen Dilanjutkan',text:'Sesi tetap tersimpan. Semua meja yang sebelumnya aktif dapat melanjutkan permainan.',timer:1800,showConfirmButton:false});
+      }).withFailureHandler(err=>{hideLoader();Swal.fire('Gagal Melanjutkan',err.message||String(err),'error');}).resumeTournamentSession(currentClass);
+    }
+
+    function endTournamentSerentak(){
+      if(!requireActiveClass() || !userSession || userSession.role!=='GURU') return;
+      Swal.fire({icon:'warning',title:'Akhiri Sesi?',text:'Semua meja akan dihentikan permanen dan hasil terakhir yang tersimpan akan difinalkan.',showCancelButton:true,confirmButtonText:'Ya, Akhiri',cancelButtonText:'Batal'}).then(r=>{
+        if(!r.isConfirmed) return;
+        showLoader();
+        google.script.run.withSuccessHandler(res=>{
+          hideLoader(); appData.session=null; if(gameState.sessionId) setGamePaused(true); renderTurnamenSetup();
+          Swal.fire('Sesi Berakhir','Semua meja telah diakhiri dan hasil sudah dapat dilihat pada menu Hasil.','success');
+        }).withFailureHandler(err=>{hideLoader();Swal.fire('Gagal Mengakhiri',err.message||String(err),'error');}).endTournamentSession(currentClass);
+      });
+    }
+
+
+    function refreshTournamentSession() {
+      if(!currentClass || !document.getElementById('page-turnamen')?.classList.contains('active')) return;
+      google.script.run.withSuccessHandler(session => {
+        appData.session = session;
+        renderTurnamenSetup();
+      }).getTournamentSession(currentClass);
+    }
+
+
+    function initGame(tableId, providedSession=null) {
+      if(userSession && userSession.role==='MURID' && userSession.idMeja && userSession.idMeja !== tableId) return Swal.fire('Akses Terbatas','Anda hanya dapat masuk ke meja tempat Anda ditugaskan.','warning');
+      if(userSession && userSession.role==='MEJA' && userSession.idMeja !== tableId) return Swal.fire('Akses Terbatas','Akun ini hanya dapat mengoperasikan meja yang sesuai.','warning');
+      if(!userSession) return showLoginScreen();
+      showLoader();
+      const proceed = session => {
+        if(!session || !['SCHEDULED','RUNNING','PAUSED'].includes(session.Status)) { hideLoader(); return Swal.fire('Turnamen Belum Dibuka','Guru harus membuka turnamen meja ini terlebih dahulu.','info'); }
+        let table = appData.meja.find(t => t.ID === tableId);
+        let players = appData.murid.filter(m => m.ID_Meja === tableId);
+        const selectedMateri = String(session.Materi || '').trim();
+        let questions = appData.soal.filter(s => String(s.Paket||'') === String(table?.Paket||''));
+        if(selectedMateri) questions = questions.filter(s => String(s.Materi||'').trim() === selectedMateri);
+        if(!table) { hideLoader(); return Swal.fire('Error','Meja tidak ditemukan.','error'); }
+        if(players.length === 0) { hideLoader(); return Swal.fire('Error','Tidak ada pemain di meja ini!','error'); }
+        if(questions.length === 0) { hideLoader(); return Swal.fire('Soal Tidak Tersedia', selectedMateri ? `Tidak ada soal untuk Materi <b>${escapeHtml(selectedMateri)}</b> pada Paket ${table.Paket}.` : `Bank soal Paket ${table.Paket} kosong!`,'error'); }
+        questions = seededShuffle(questions, `${session.ID_Sesi}|${table.ID}`);
+        gameState = {tableId:table.ID,tableData:table,players:players.map(p=>({...p,cardsWon:0})),questions,currentQIndex:-1,currentTurn:0,answeringQIndex:null,sanggahQueue:[],sanggahCursor:0,activeCardHangus:false,sessionStartAt:Number(session.StartAtMs||0),sessionDurationSec:Number(session.DurationSec||appData.config.tgt_duration_sec||1200),sessionId:session.ID_Sesi,status:session.Status,lastSyncedAt:0,gameStarted:false,pendingPublishQ:-1,pendingPublishAt:0};
+        hideLoader();
+        document.getElementById('turnamen-setup').style.display='none'; document.getElementById('turnamen-gameplay').style.display='block';
+        document.getElementById('game-meja-title').innerText=`${table.Nama_Meja} (${table.Kategori} - Paket ${table.Paket}${selectedMateri ? ' - ' + selectedMateri : ''})`;
+        document.getElementById('game-pre-start').style.display='block'; document.getElementById('game-active').style.display='none'; renderGamePlayers();
+        google.script.run.withSuccessHandler(states=>{ const st=(states||[]).find(x=>x.ID_Meja===table.ID && x.ID_Sesi===session.ID_Sesi); if(st){ gameState.currentQIndex=Number(st.CurrentQ||-1); gameState.currentTurn=Number(st.CurrentTurn||0); syncTurnFromQuestion(); (st.Players||[]).forEach(lp=>{const p=gameState.players.find(x=>x.ID===lp.ID); if(p)p.cardsWon=Number(lp.Cards||0);}); if(gameState.currentQIndex>=0){ document.getElementById('game-pre-start').style.display='none'; document.getElementById('game-active').style.display='block'; renderQuestion(); renderGamePlayers(); gameState.gameStarted=true; } } if(session.Status==='PAUSED') setGamePaused(true); else startGame(true); }).getLiveTournamentStates(currentClass,session.ID_Sesi);
+      };
+      if(providedSession) syncServerClock(()=>proceed(providedSession)); else google.script.run.withSuccessHandler(session=>syncServerClock(()=>proceed(session))).withFailureHandler(err=>{hideLoader();Swal.fire('Gagal Memeriksa Meja',err.message||String(err),'error');}).getTableTournamentSession(currentClass,tableId);
+    }
+
+    function seededShuffle(arr, seed){
+      let a=[...arr], h=0; for(let i=0;i<seed.length;i++) h=((h<<5)-h)+seed.charCodeAt(i)|0;
+      function rnd(){ h=(h*1664525+1013904223)|0; return (h>>>0)/4294967296; }
+      for(let i=a.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a;
+    }
+    function publishLiveState(status='RUNNING'){
+      if(!gameState.sessionId) return;
+      const publishQ=Number(gameState.currentQIndex);
+      const q=gameState.questions[publishQ]||null;
+      const payload={ID_Sesi:gameState.sessionId,Kelas:currentClass,ID_Meja:gameState.tableId,Status:status,CurrentQ:publishQ,CurrentTurn:gameState.currentTurn,TimerRemaining:parseInt((document.getElementById('game-timer')?.innerText||'0:0').split(':')[0])*60+parseInt((document.getElementById('game-timer')?.innerText||'0:0').split(':')[1]||0),Cards:gameState.players.map(p=>p.cardsWon),Players:gameState.players.map(p=>({ID:p.ID,Nama:p.Nama,Cards:p.cardsWon})),Question:q?{ID:q.ID,Pertanyaan:q.Pertanyaan,Jenis:q.Jenis,OpsiA:q.OpsiA,OpsiB:q.OpsiB,OpsiC:q.OpsiC,OpsiD:q.OpsiD,OpsiE:q.OpsiE}:null};
+      if(publishQ>=0) { gameState.pendingPublishQ=publishQ; gameState.pendingPublishAt=Date.now(); }
+      google.script.run.withSuccessHandler(res=>{
+        // Setelah server menerima soal terbaru, server menjadi sumber kebenaran.
+        if(gameState.pendingPublishQ===publishQ) {
+          const serverQ=Number(res?.currentQ ?? publishQ);
+          if(serverQ>=publishQ || res===true) { gameState.pendingPublishQ=-1; gameState.pendingPublishAt=0; }
+        }
+      }).withFailureHandler(()=>{
+        // Jangan langsung mundur ke soal lama hanya karena satu publish gagal.
+        // Sync berikutnya akan mencoba lagi melalui interval publish.
+      }).saveLiveTournamentState(payload);
+    }
+    function syncLiveState(){
+      if(!gameState.sessionId || !currentClass) return;
+      google.script.run.withSuccessHandler(states=>{
+        const st=(states||[]).find(x=>String(x.ID_Meja)===String(gameState.tableId) && String(x.ID_Sesi)===String(gameState.sessionId));
+        if(!st) return;
+        if(st.UpdatedAtMs && gameState.lastSyncedAt && st.UpdatedAtMs<=gameState.lastSyncedAt) return;
+
+        const serverQ=Number(st.CurrentQ ?? -1);
+        const localQ=Number(gameState.currentQIndex ?? -1);
+        // Jangan pernah mengembalikan tampilan ke soal sebelumnya ketika tombol
+        // "Lanjut Soal Berikutnya" baru saja ditekan dan publish masih berjalan.
+        if(serverQ < localQ) {
+          if(gameState.pendingPublishQ===localQ) return;
+          // Jika server benar-benar tertinggal tetapi tidak ada publish pending,
+          // kirim ulang state lokal daripada menurunkan soal di layar.
+          publishLiveState('RUNNING');
+          return;
+        }
+
+        gameState.lastSyncedAt=st.UpdatedAtMs||Date.now();
+
+        // SANGAT PENTING: ketika kartu sedang diperiksa, jangan pernah
+        // mengosongkan sanggahQueue atau memindahkan soal. Sinkronisasi 2,5 detik
+        // sebelumnya menyebabkan penyanggah yang sebenarnya BENAR dianggap
+        // seperti penyanggah terakhir/salah karena queue hilang sebelum tombol
+        // BENAR ditekan.
+        const resolvingCard = gameState.answeringQIndex !== null && gameState.answeringQIndex !== undefined;
+        if(resolvingCard){
+          if(serverQ !== Number(gameState.answeringQIndex)) return;
+          (st.Players||[]).forEach(lp=>{
+            const p=gameState.players.find(x=>String(x.ID)===String(lp.ID));
+            if(p) p.cardsWon=Number(lp.Cards||0);
+          });
+          renderGamePlayers();
+          return;
+        }
+
+        if(serverQ>=0) gameState.currentQIndex=serverQ;
+        // Giliran utama selalu dihitung dari nomor soal; jangan mengambil nilai
+        // CurrentTurn lama dari server yang dapat berasal dari state sebelumnya.
+        if(gameState.currentQIndex>=0) gameState.currentTurn=getMainPlayerIndex(gameState.currentQIndex);
+        if(gameState.pendingPublishQ>=0 && serverQ>=gameState.pendingPublishQ) { gameState.pendingPublishQ=-1; gameState.pendingPublishAt=0; }
+        (st.Players||[]).forEach(lp=>{const p=gameState.players.find(x=>String(x.ID)===String(lp.ID)); if(p) p.cardsWon=Number(lp.Cards||0);});
+        gameState.sanggahQueue=[]; gameState.sanggahCursor=0;
+        renderGamePlayers(); if(gameState.currentQIndex>=0) renderQuestion();
+      }).getLiveTournamentStates(currentClass,gameState.sessionId);
+    }
+    function setGamePaused(paused){
+      gamePausedByTeacher=!!paused;
+      if(gamePausedByTeacher){
+        if(window.gameInterval) clearInterval(window.gameInterval);
+        if(window.sharedCountdownInterval) clearInterval(window.sharedCountdownInterval);
+        if(livePublishInterval) { clearInterval(livePublishInterval); livePublishInterval=null; }
+        document.querySelectorAll('#turnamen-gameplay button').forEach(b=>{ b.disabled=true; b.dataset.teacherPaused='1'; });
+        const info=document.getElementById('game-turn-info'); if(info) info.innerHTML='<span class="text-warning"><i class="fas fa-pause-circle"></i> Turnamen dihentikan sementara oleh guru.</span>';
+      } else {
+        document.querySelectorAll('#turnamen-gameplay button[data-teacher-paused="1"]').forEach(b=>{ b.disabled=false; delete b.dataset.teacherPaused; });
+        if(gameState.sessionId && gameState.gameStarted) { resumeLocalGameClock(); if(!livePublishInterval) livePublishInterval=setInterval(()=>publishLiveState('RUNNING'),10000); }
+      }
+    }
+
+    function resumeLocalGameClock(){
+      if(gamePausedByTeacher || !gameState.sessionId) return;
+      if(window.gameInterval) clearInterval(window.gameInterval);
+      let remaining=Number(gameState.sessionDurationSec||1200);
+      const start=Number(gameState.sessionStartAt||0);
+      if(start>0) remaining=Math.max(0,Math.ceil((start+Number(gameState.sessionDurationSec||1200)*1000-serverNow())/1000));
+      document.getElementById('game-timer').innerText=`${Math.floor(remaining/60)}:${remaining%60<10?'0':''}${remaining%60}`;
+      window.gameInterval=setInterval(()=>{
+        if(gamePausedByTeacher) return;
+        remaining--; const m=Math.floor(Math.max(0,remaining)/60), sec=Math.max(0,remaining)%60;
+        document.getElementById('game-timer').innerText=`${m}:${sec<10?'0':''}${sec}`;
+        if(remaining<=0){clearInterval(window.gameInterval); finishTable();}
+      },1000);
+    }
+
+    function checkTeacherSession(){
+      if(!gameState.sessionId || !currentClass) return;
+      google.script.run.withSuccessHandler(session=>{
+        if(!session) return;
+        if(session.Status==='PAUSED'){ if(!gamePausedByTeacher) setGamePaused(true); return; }
+        if(session.Status==='FINISHED'){ if(!gamePausedByTeacher) setGamePaused(true); return; }
+        if(session.Status==='RUNNING' || session.Status==='SCHEDULED'){
+          const oldDuration = Number(gameState.sessionDurationSec || 1200);
+          const newDuration = Number(session.DurationSec || oldDuration);
+          gameState.sessionStartAt=Number(session.StartAtMs||gameState.sessionStartAt);
+          if(newDuration !== oldDuration) {
+            gameState.sessionDurationSec = newDuration;
+            // Restart the local countdown against the newly saved total duration.
+            if(!gamePausedByTeacher && gameState.gameStarted) resumeLocalGameClock();
+          } else {
+            gameState.sessionDurationSec = newDuration;
+          }
+          if(gamePausedByTeacher) setGamePaused(false);
+        }
+      }).getTableTournamentSession(currentClass,gameState.tableId);
+    }
+
+    function enterParticipantMode(){
+      if(!userSession || userSession.role==='GURU') return;
+      const mode=String(userSession.deviceMode || appData.config.tgt_device_mode || 'TABLE');
+      if(mode==='TABLE' && userSession.role==='MURID') return Swal.fire('Mode Perangkat Meja','Guru mengatur turnamen menggunakan satu perangkat per meja. Silakan masuk menggunakan username meja turnamen.','info');
+      if(mode==='STUDENT' && userSession.role==='MEJA') return Swal.fire('Mode Perangkat Murid','Guru mengatur setiap murid menggunakan gawai sendiri. Masuk menggunakan akun murid/NIS.','info');
+      const target=userSession.idMeja; if(!target) return Swal.fire('Belum Ada Meja','Akun ini belum memiliki penempatan meja turnamen.','warning');
+      showPage('turnamen'); setTimeout(()=>initGame(target),500);
+    }
+
+    function getSanggahQueue(mainIdx) {
+      const n = gameState.players.length;
+      const queue = [];
+      if (n <= 1) return queue;
+      for (let step = 1; step < n; step++) queue.push((mainIdx + step) % n);
+      return queue;
+    }
+
+    function updateTurnDisplay() {
+      if (!gameState.players || !gameState.players.length || gameState.currentQIndex < 0) return;
+      const mainIdx = Number(gameState.currentTurn || 0);
+      const mainPlayer = gameState.players[mainIdx];
+      const queue = getSanggahQueue(mainIdx);
+      const inSanggah = Array.isArray(gameState.sanggahQueue) && gameState.sanggahQueue.length > 0;
+      const currentSanggahIdx = inSanggah ? gameState.sanggahQueue[gameState.sanggahCursor] : null;
+      const currentPlayer = currentSanggahIdx !== null && currentSanggahIdx !== undefined
+        ? gameState.players[currentSanggahIdx] : mainPlayer;
+
+      const info = document.getElementById('game-turn-info');
+      const order = document.getElementById('game-turn-order');
+      if (info) {
+        if (inSanggah) {
+          info.innerHTML = `<span class="text-warning">Penyanggah ke-${gameState.sanggahCursor + 1}: <b>${escapeHtml(currentPlayer.Nama)}</b> menjawab.</span>`;
+        } else {
+          info.innerHTML = `Giliran Utama: <b>${escapeHtml(mainPlayer.Nama)}</b> menjawab.`;
+        }
+      }
+      if (order) {
+        const orderNames = queue.map(i => escapeHtml(gameState.players[i].Nama)).join(' → ');
+        order.innerHTML = inSanggah
+          ? `Urutan sanggahan: <b>${orderNames}</b> &nbsp;|&nbsp; Sekarang: <b>${escapeHtml(currentPlayer.Nama)}</b>`
+          : `Urutan utama: <b>${escapeHtml(gameState.players.map(p => p.Nama).join(' → '))}</b> &nbsp;|&nbsp; Sanggahan jika utama salah: <b>${orderNames || '-'}</b>`;
+      }
+    }
+
+    function renderGamePlayers() {
+      let html = '';
+      const mainIdx = Number(gameState.currentTurn || 0);
+      const inSanggah = Array.isArray(gameState.sanggahQueue) && gameState.sanggahQueue.length > 0;
+      const activeSanggahIdx = inSanggah ? gameState.sanggahQueue[gameState.sanggahCursor] : null;
+      const queue = getSanggahQueue(mainIdx);
+
+      gameState.players.forEach((p, i) => {
+        let activeCls = '';
+        let roleBadge = '';
+        if (gameState.currentQIndex >= 0 && !inSanggah && i === mainIdx) {
+          activeCls = 'active-turn';
+          roleBadge = '<span class="badge bg-primary mt-1">PEMAIN UTAMA</span>';
+        } else if (inSanggah && i === activeSanggahIdx) {
+          activeCls = 'sanggah-turn';
+          roleBadge = `<span class="badge bg-warning text-dark mt-1">PENYANGGA KE-${gameState.sanggahCursor + 1}</span>`;
+        } else if (inSanggah && queue.includes(i)) {
+          const pos = queue.indexOf(i);
+          roleBadge = `<span class="badge bg-light text-dark mt-1">Penyanggah urutan ${pos + 1}</span>`;
+        }
+        const group = appData.kelompok.find(k=>k.ID===p.ID_Kelompok);
+        const groupName = group ? String(group.Nama_Kelompok || '').replace('Kelompok','').trim() : '';
+        html += `<div class="player-badge mb-2 bg-white ${activeCls}">
+          <div><i class="fas fa-user-circle fa-2x text-secondary"></i></div>
+          <div class="fw-bold mt-1">${escapeHtml(p.Nama)}</div>
+          <small class="text-muted">Kelompok ${escapeHtml(groupName)}</small>
+          <div class="card-won mt-1"><i class="fas fa-layer-group"></i> ${p.cardsWon} Kartu</div>
+          ${roleBadge}
+        </div>`;
+      });
+      const container = document.getElementById('game-players-container');
+      if (container) container.innerHTML = html;
+      updateTurnDisplay();
+    }
+
+    function startGame(autoStart = false) {
+      const sharedStart = Number(gameState.sessionStartAt || 0);
+      const now = Date.now();
+      if(sharedStart && now < sharedStart) {
+        const waitSec = Math.ceil((sharedStart - now) / 1000);
+        document.getElementById('game-pre-start').innerHTML = `<h3>Turnamen Dibuka</h3><p>Meja ini akan mulai sesuai waktu yang ditetapkan guru.</p><div class="display-4 text-primary fw-bold" id="shared-countdown">${waitSec}</div><p class="text-muted">Bersiap...</p>`;
+        if(window.sharedCountdownInterval) clearInterval(window.sharedCountdownInterval);
+        window.sharedCountdownInterval = setInterval(() => {
+          const remain = Math.max(0, Math.ceil((sharedStart - serverNow()) / 1000));
+          const el = document.getElementById('shared-countdown'); if(el) el.innerText = remain;
+          if(remain <= 0) {
+            clearInterval(window.sharedCountdownInterval);
+            beginGameClock();
+          }
+        }, 250);
+        if(autoStart) return;
+        return;
+      }
+      beginGameClock();
+    }
+
+    function beginGameClock() {
+      document.getElementById('game-pre-start').style.display = 'none';
+      document.getElementById('game-active').style.display = 'block';
+      if(!gameState.gameStarted){ nextTurn(); gameState.gameStarted=true; }
+      publishLiveState('RUNNING');
+      if(liveSyncInterval) clearInterval(liveSyncInterval);
+      liveSyncInterval=setInterval(syncLiveState, 4000);
+      if(livePublishInterval) clearInterval(livePublishInterval);
+      livePublishInterval=setInterval(()=>publishLiveState('RUNNING'),10000);
+
+      resumeLocalGameClock();
+      if(sessionHeartbeatInterval) clearInterval(sessionHeartbeatInterval);
+      sessionHeartbeatInterval=setInterval(checkTeacherSession,5000);
+    }
+
+    function getMainPlayerIndex(qIndex){
+      const n = gameState.players.length;
+      if(!n || qIndex < 0) return 0;
+      // Soal ke-1 (index 0) -> pemain 1, soal ke-2 -> pemain 2, dst.
+      // Setelah pemain terakhir, siklus kembali ke pemain 1.
+      return qIndex % n;
+    }
+
+    function syncTurnFromQuestion(){
+      if(gameState.players.length && gameState.currentQIndex>=0){
+        gameState.currentTurn = getMainPlayerIndex(gameState.currentQIndex);
+      }
+    }
+
+    function renderQuestion(){
+      const q = gameState.questions?.[gameState.currentQIndex];
+      if(!q) return;
+      const num=document.getElementById('game-q-num');
+      const text=document.getElementById('game-q-text');
+      const opts=document.getElementById('game-q-options');
+      if(num) num.innerText=gameState.currentQIndex+1;
+      if(text) text.innerHTML=q.Pertanyaan || '';
+      if(opts){
+        let optHtml='';
+        if(q.Jenis==='PG'){
+          ['A','B','C','D','E'].forEach(o=>{ if(q['Opsi'+o]) optHtml += `<div class="col-md-5 mx-2 my-1 text-start border rounded p-2 bg-light"><b>${o}.</b> ${q['Opsi'+o]}</div>`; });
+        }
+        opts.innerHTML=optHtml;
+      }
+      const btn=document.getElementById('btn-check-jawaban-card');
+      if(btn){
+        const checking=document.getElementById('action-check')?.style.display==='block';
+        const next=document.getElementById('action-next')?.style.display==='block';
+        btn.style.display=(gameState.currentQIndex>=0 && !checking && !next)?'inline-block':'none';
+        btn.disabled=false;
+      }
+      setTimeout(reTypeset,50);
+    }
+
+    function nextTurn() {
+      if (gameState.currentQIndex >= gameState.questions.length - 1) {
+        return Swal.fire('Soal Habis!', 'Semua soal telah dimainkan.', 'warning').then(finishTable);
+      }
+
+      const nextQ = Number(gameState.currentQIndex) + 1;
+      gameState.currentQIndex = nextQ;
+      // GILIRAN UTAMA MUTLAK berdasarkan nomor soal:
+      // soal 1 -> P1, soal 2 -> P2, soal 3 -> P3, dst.
+      gameState.currentTurn = getMainPlayerIndex(nextQ);
+      gameState.answeringQIndex = null;
+      gameState.sanggahQueue = [];
+      gameState.sanggahCursor = 0;
+      gameState.activeCardHangus = false;
+      gameState.pendingPublishQ = nextQ;
+      gameState.pendingPublishAt = Date.now();
+
+      // Reset seluruh kontrol sebelum merender soal baru.
+      const actionS=document.getElementById('action-sanggahan');
+      const actionC=document.getElementById('action-check');
+      const actionN=document.getElementById('action-next');
+      if(actionS) actionS.style.display='none';
+      if(actionC) actionC.style.display='none';
+      if(actionN) actionN.style.display='none';
+      const controls=document.getElementById('game-controls');
+      if(controls) controls.dataset.sanggahMode='0';
+      const btnCheckCard=document.getElementById('btn-check-jawaban-card');
+      if(btnCheckCard){ btnCheckCard.style.display='inline-block'; btnCheckCard.disabled=false; }
+
+      // Render berdasarkan state lokal TERLEBIH DAHULU. Jangan menunggu server,
+      // sehingga UI tidak sempat kembali ke soal sebelumnya.
+      renderQuestion();
+      updateTurnDisplay();
+      renderGamePlayers();
+      publishLiveState('RUNNING');
+      setTimeout(reTypeset,50);
+    }
+
+    function triggerSanggahan() {
+      // Kompatibilitas kode lama: sanggahan hanya boleh dimulai
+      // setelah pemain utama dinyatakan SALAH.
+      resolveMainAnswer(false);
+    }
+
+    function showNextSanggah() {
+      const idx = gameState.sanggahQueue[gameState.sanggahCursor];
+      if (idx === undefined) return finishCardResolution('Semua penyanggah salah. Kartu hangus dan tidak dimiliki siapa pun.');
+      const p = gameState.players[idx];
+      const q = gameState.questions[gameState.currentQIndex];
+      if(!p || !q) return;
+      document.getElementById('game-key').innerText = q.Jenis === 'PG' ? q.Kunci : q.JawabanSingkat;
+      const title=document.getElementById('check-stage-title');
+      if(title) title.innerHTML=`Jawaban utama SALAH. Sekarang cek <b>Penyanggah ke-${gameState.sanggahCursor + 1}: ${escapeHtml(p.Nama)}</b>`;
+      document.getElementById('action-sanggahan').style.display='none';
+      document.getElementById('action-check').style.display='block';
+      const btnCheckCard=document.getElementById('btn-check-jawaban-card'); if(btnCheckCard) btnCheckCard.style.display='none';
+      document.getElementById('game-award-buttons').innerHTML = `
+        <div class="alert alert-warning py-2 mb-2">
+          <i class="fas fa-hand-paper"></i> <b>Penyanggah ke-${gameState.sanggahCursor + 1}</b>: ${escapeHtml(p.Nama)}
+          <br><small>Periksa jawaban sesuai urutan. Yang BENAR pertama langsung mendapatkan kartu.</small>
+        </div>
+        <button class="btn btn-success btn-lg m-1" onclick="resolveSanggah(true)"><i class="fas fa-check"></i> ${escapeHtml(p.Nama)} BENAR — DAPAT KARTU</button>
+        <button class="btn btn-danger btn-lg m-1" onclick="resolveSanggah(false)"><i class="fas fa-times"></i> ${escapeHtml(p.Nama)} SALAH — LANJUT</button>`;
+      updateTurnDisplay();
+      renderGamePlayers();
+      publishLiveState('RUNNING');
+    }
+
+    function applyServerCardState(res){
+      if(!res) return;
+
+      // STATE KARTU DARI SERVER ADALAH SUMBER KEBENARAN.
+      // Gunakan Players + Cards agar jumlah kartu tetap benar walaupun salah
+      // satu representasi JSON belum memiliki data lengkap.
+      // Players adalah sumber kebenaran karena setiap jumlah kartu terikat
+      // langsung ke ID pemain. Jangan menimpa nilai pemain dengan CardsJson
+      // berdasarkan posisi array karena urutan/isi array bisa berasal dari
+      // state lama. Ini terutama penting untuk pemain PENYANGGAH.
+      if(Array.isArray(res.players)){
+        res.players.forEach(lp=>{
+          const p=gameState.players.find(x=>String(x.ID)===String(lp.ID));
+          if(p) p.cardsWon=Number(lp.Cards ?? 0);
+        });
+      } else if(Array.isArray(res.cards)){
+        res.cards.forEach((cards, idx)=>{
+          if(gameState.players[idx]) gameState.players[idx].cardsWon=Number(cards||0);
+        });
+      }
+      renderGamePlayers();
+    }
+
+    function awardCardAuthoritatively(playerId, message){
+      const intendedQ = Number(gameState.answeringQIndex ?? gameState.currentQIndex);
+      const buttons=document.querySelectorAll('#game-award-buttons button');
+      buttons.forEach(b=>b.disabled=true);
+
+      // Selalu cek state server tepat sebelum kartu diberikan.
+      // Ini mencegah error "Soal sudah berubah" ketika sinkronisasi 2,5 detik
+      // terjadi bersamaan dengan klik tombol BENAR/SALAH.
+      google.script.run.withSuccessHandler(states=>{
+        const st=(states||[]).find(x=>String(x.ID_Meja)===String(gameState.tableId) && String(x.ID_Sesi)===String(gameState.sessionId));
+        const serverQ = st && st.CurrentQ !== undefined && st.CurrentQ !== null ? Number(st.CurrentQ) : intendedQ;
+
+        if(serverQ !== intendedQ){
+          // Tampilan lokal sudah tertinggal. Sinkronkan tanpa memberikan kartu
+          // pada soal yang berbeda.
+          if(st){
+            gameState.currentQIndex=serverQ;
+            if(st.CurrentTurn!==undefined) gameState.currentTurn=Number(st.CurrentTurn);
+            syncTurnFromQuestion();
+            (st.Players||[]).forEach(lp=>{
+              const p=gameState.players.find(x=>String(x.ID)===String(lp.ID));
+              if(p) p.cardsWon=Number(lp.Cards||0);
+            });
+            renderGamePlayers();
+            if(serverQ>=0) renderQuestion();
+          }
+          gameState.sanggahQueue=[]; gameState.sanggahCursor=0;
+          gameState.answeringQIndex=null;
+          buttons.forEach(b=>b.disabled=false);
+          document.getElementById('action-check').style.display='none';
+          document.getElementById('action-sanggahan').style.display='block';
+          return;
+        }
+
+        google.script.run.withSuccessHandler(res=>{
+          // Server boleh mengembalikan stale=true jika browser terlambat.
+          // Sinkronkan tanpa menampilkan popup error dan tanpa menambah kartu ke soal yang salah.
+          if(res && res.stale){
+            applyServerCardState(res);
+            if(res.currentQ!==undefined && res.currentQ!==null){
+              gameState.currentQIndex=Number(res.currentQ);
+              syncTurnFromQuestion();
+              if(gameState.currentQIndex>=0) renderQuestion();
+            }
+            gameState.sanggahQueue=[]; gameState.sanggahCursor=0;
+            gameState.answeringQIndex=null;
+            buttons.forEach(b=>b.disabled=false);
+            document.getElementById('action-check').style.display='none';
+            document.getElementById('action-sanggahan').style.display='block';
+            return;
+          }
+          // Terapkan hasil server terlebih dahulu. Untuk pemenang sanggahan,
+          // jumlah kartu wajib langsung terlihat pada kartu pemain yang benar.
+          applyServerCardState(res);
+          const winner = (playerId!==null && playerId!==undefined && String(playerId)!=='')
+            ? gameState.players.find(p=>String(p.ID)===String(playerId)) : null;
+          if(winner && res && Array.isArray(res.players)){
+            const savedWinner = res.players.find(p=>String(p.ID)===String(playerId));
+            if(savedWinner) winner.cardsWon=Number(savedWinner.Cards ?? 0);
+          }
+          gameState.sanggahQueue=[]; gameState.sanggahCursor=0;
+          gameState.answeringQIndex=null;
+          renderGamePlayers();
+          finishCardResolution(message);
+        }).withFailureHandler(err=>{
+          buttons.forEach(b=>b.disabled=false);
+          const msg=err.message||String(err);
+          if(/Soal sudah berubah/i.test(msg)){
+            // Kompatibilitas jika ada versi server lama yang masih melempar error stale.
+            syncLiveState();
+            gameState.answeringQIndex=null;
+            document.getElementById('action-check').style.display='none';
+            document.getElementById('action-sanggahan').style.display='block';
+          } else {
+            Swal.fire('Sinkronisasi Kartu Gagal',msg,'error');
+          }
+        }).awardCardServer(gameState.sessionId,currentClass,gameState.tableId,playerId,intendedQ);
+      }).withFailureHandler(err=>{
+        buttons.forEach(b=>b.disabled=false);
+        Swal.fire('Gagal Sinkronisasi',err.message||String(err),'error');
+      }).getLiveTournamentStates(currentClass,gameState.sessionId);
+    }
+
+    function resolveSanggah(correct) {
+      // Pulihkan queue bila ada kode sinkronisasi lama yang sempat mengosongkannya.
+      // Selama kartu masih dalam tahap pemeriksaan, queue TIDAK BOLEH dianggap
+      // selesai hanya karena interval sinkronisasi berjalan.
+      if(!Array.isArray(gameState.sanggahQueue) || !gameState.sanggahQueue.length){
+        const qIndex=Number(gameState.answeringQIndex ?? gameState.currentQIndex);
+        const mainIdx=getMainPlayerIndex(qIndex);
+        gameState.sanggahQueue=getSanggahQueue(mainIdx);
+      }
+
+      const idx = gameState.sanggahQueue[gameState.sanggahCursor];
+      if (idx === undefined) {
+        return awardCardAuthoritatively(null,'Semua penyanggah sudah diperiksa dan tidak ada yang benar. Kartu hangus.');
+      }
+
+      if(correct){
+        // Prinsip sanggahan: pemain pertama dalam URUTAN sanggahan yang benar
+        // langsung menjadi pemilik kartu. Pemain setelahnya tidak lagi menjawab.
+        awardCardAuthoritatively(
+          gameState.players[idx].ID,
+          `${gameState.players[idx].Nama} mendapatkan kartu karena menjadi penyanggah pertama yang menjawab benar.`
+        );
+        return;
+      }
+
+      // Jawaban penyanggah saat ini salah -> lanjut tepat ke penyanggah berikutnya.
+      gameState.sanggahCursor++;
+      if(gameState.sanggahCursor < gameState.sanggahQueue.length){
+        showNextSanggah();
+      } else {
+        // Semua penyanggah salah -> kartu hangus.
+        gameState.sanggahQueue = [];
+        gameState.sanggahCursor = 0;
+        awardCardAuthoritatively(null,'Semua penyanggah salah. Kartu hangus dan tidak dimiliki siapa pun.');
+      }
+    }
+
+    function checkAnswer(){
+      // TAHAP 1: tombol pada kartu selalu memeriksa PEMAIN UTAMA terlebih dahulu.
+      gameState.answeringQIndex = gameState.currentQIndex;
+      syncTurnFromQuestion();
+      const mainIdx = Number(gameState.currentTurn || 0);
+      const mainPlayer = gameState.players[mainIdx];
+      const q=gameState.questions[gameState.currentQIndex];
+      if(!q || !mainPlayer) return;
+
+      document.getElementById('game-key').innerText=q.Jenis==='PG'?q.Kunci:q.JawabanSingkat;
+      document.getElementById('action-sanggahan').style.display='none';
+      document.getElementById('action-check').style.display='block';
+      const btnCheckCard=document.getElementById('btn-check-jawaban-card');
+      if(btnCheckCard) btnCheckCard.style.display='none';
+      const title=document.getElementById('check-stage-title');
+      if(title) title.innerHTML=`Cek jawaban <b>Pemain Utama: ${escapeHtml(mainPlayer.Nama)}</b>`;
+      document.getElementById('game-award-buttons').innerHTML=`
+        <div class="alert alert-primary py-2 mb-2">
+          <i class="fas fa-user-check"></i> <b>${escapeHtml(mainPlayer.Nama)}</b> adalah pemain utama.
+          <br><small>Jika jawaban pemain utama BENAR, kartu langsung menjadi miliknya.</small>
+        </div>
+        <button class="btn btn-success btn-lg m-1" onclick="resolveMainAnswer(true)">
+          <i class="fas fa-check"></i> PEMAIN UTAMA BENAR — DAPAT KARTU
+        </button>
+        <button class="btn btn-danger btn-lg m-1" onclick="resolveMainAnswer(false)">
+          <i class="fas fa-times"></i> PEMAIN UTAMA SALAH — CEK SANGGAHAN
+        </button>`;
+      document.getElementById('game-controls').dataset.sanggahMode='0';
+      updateTurnDisplay();
+    }
+
+    function resolveMainAnswer(correct){
+      const mainIdx = getMainPlayerIndex(Number(gameState.answeringQIndex ?? gameState.currentQIndex));
+      gameState.currentTurn = mainIdx;
+      const mainPlayer = gameState.players[mainIdx];
+      if(!mainPlayer) return;
+
+      if(correct){
+        // PEMAIN UTAMA BENAR -> kartu langsung menjadi milik pemain utama.
+        // Tidak ada pemeriksaan sanggahan pada kondisi ini.
+        gameState.sanggahQueue=[];
+        gameState.sanggahCursor=0;
+        awardCardAuthoritatively(mainPlayer.ID, `${mainPlayer.Nama} mendapatkan kartu karena jawaban pemain utama BENAR.`);
+        return;
+      }
+
+      // PEMAIN UTAMA SALAH -> baru mulai memeriksa penyanggah sesuai urutan.
+      gameState.answeringQIndex = Number(gameState.answeringQIndex ?? gameState.currentQIndex);
+      gameState.sanggahQueue = getSanggahQueue(mainIdx);
+      gameState.sanggahCursor = 0;
+      if(!gameState.sanggahQueue.length){
+        awardCardAuthoritatively(null,'Jawaban pemain utama salah dan tidak ada penyanggah. Kartu hangus.');
+        return;
+      }
+      showNextSanggah();
+    }
+
+    function finishCardResolution(message){
+      document.getElementById('action-check').style.display='none';
+      document.getElementById('action-sanggahan').style.display='none';
+      const btnCheckCard=document.getElementById('btn-check-jawaban-card'); if(btnCheckCard) { btnCheckCard.style.display='none'; btnCheckCard.disabled=false; }
+      document.getElementById('action-next').style.display='block';
+      document.getElementById('game-controls').dataset.sanggahMode='0';
+      renderGamePlayers();
+      publishLiveState('RUNNING');
+      Swal.fire({icon:'info',title:'Hasil Kartu',text:message,timer:1400,showConfirmButton:false});
+    }
+
+    function awardCard(playerIdx){
+      // Kompatibilitas tombol lama: semua perubahan kartu tetap melalui server.
+      if(playerIdx===null) awardCardAuthoritatively(null,'Kartu hangus.');
+      else if(playerIdx===gameState.currentTurn) resolveMainAnswer(true);
+      else { const pos=gameState.sanggahQueue.indexOf(playerIdx); if(pos>=0){gameState.sanggahCursor=pos;resolveSanggah(true);} }
+    }
+
+    function exitGame() {
+      // KELUAR TURNAMEN/MEJA: hanya meninggalkan gameplay dan kembali
+      // ke halaman pemilihan meja turnamen. Login tetap aktif.
+      if(window.gameInterval) { clearInterval(window.gameInterval); window.gameInterval=null; }
+      if(window.sharedCountdownInterval) { clearInterval(window.sharedCountdownInterval); window.sharedCountdownInterval=null; }
+      if(liveSyncInterval) { clearInterval(liveSyncInterval); liveSyncInterval=null; }
+      if(livePublishInterval) { clearInterval(livePublishInterval); livePublishInterval=null; }
+      if(sessionHeartbeatInterval) { clearInterval(sessionHeartbeatInterval); sessionHeartbeatInterval=null; }
+
+      gamePausedByTeacher=false;
+
+      // Kembali ke daftar/meja turnamen tanpa menghapus sesi login.
+      const setup=document.getElementById('turnamen-setup');
+      const gameplay=document.getElementById('turnamen-gameplay');
+      if(setup) setup.style.display='block';
+      if(gameplay) gameplay.style.display='none';
+
+      // Reset state meja yang sedang dimainkan, tetapi userSession tetap ada.
+      gameState = {
+        tableId:null, tableData:null, players:[], questions:[],
+        currentQIndex:0, currentTurn:0, sanggahQueue:[],
+        sanggahCursor:0, activeCardHangus:false, pendingPublishQ:-1, pendingPublishAt:0
+      };
+
+      showPage('turnamen');
+      refreshTournamentPage();
+    }
+
+    function finishTable() {
+      if(window.gameInterval) clearInterval(window.gameInterval);
+      if(liveSyncInterval) clearInterval(liveSyncInterval);
+      if(livePublishInterval) clearInterval(livePublishInterval);
+      if(sessionHeartbeatInterval) clearInterval(sessionHeartbeatInterval);
+
+      // Hasil akhir harus memakai state kartu terakhir dari server, bukan cache perangkat.
+      const calculateAndShowResults = () => {
+        publishLiveState('FINISHED');
+
+        // Calculate Ranks and Points
+        let results = [...gameState.players].sort((a,b) => b.cardsWon - a.cardsWon || String(a.Nama).localeCompare(String(b.Nama)));
+        let html = '<table class="table"><tr><th>Peringkat</th><th>Nama</th><th>Kartu</th><th>Poin</th></tr>';
+        let tableResultsToSave = [];
+        let playerCount = results.length;
+        let pointString = appData.config['poin_meja_' + playerCount];
+        if(!pointString) pointString = [60,40,30,20,10,5].slice(0,playerCount).join(',');
+        let pointArray = pointString.split(',').map(p => parseInt(p.trim()) || 0);
+        let rank=0, lastCards=null;
+        results.forEach((p, idx) => {
+          if(lastCards===null || p.cardsWon !== lastCards){ rank++; lastCards=p.cardsWon; }
+          const points = pointArray[rank-1] !== undefined ? pointArray[rank-1] : 10;
+          html += `<tr><td>${rank}</td><td>${p.Nama}</td><td>${p.cardsWon}</td><td><b>${points}</b></td></tr>`;
+          tableResultsToSave.push({
+            tableId:gameState.tableId,
+            playerId:p.ID,
+            playerName:p.Nama,
+            tableName:(gameState.tableData&&gameState.tableData.Nama_Meja)||'',
+            groupId:p.ID_Kelompok||'',
+            groupName:p.Nama_Kelompok||'',
+            rank:rank,
+            cards:p.cardsWon,
+            points:points
+          });
+        });
+        html += '</table>';
+        Swal.fire({
+          title: 'Hasil Akhir Meja', html: html, width: 600, confirmButtonText: 'Simpan & Keluar', allowOutsideClick: false
+        }).then(res => {
+          if(res.isConfirmed) {
+            showLoader();
+            google.script.run.withSuccessHandler((sessionId) => {
+              hideLoader();
+              Swal.fire('Tersimpan', 'Hasil turnamen meja ini telah disimpan ke sistem.', 'success');
+              showPage('hasil');
+            }).withFailureHandler(err=>{
+              hideLoader();
+              Swal.fire('Gagal Menyimpan Hasil',err.message||String(err),'error');
+            }).saveTournamentResults({tableResults: tableResultsToSave, tournamentSessionId: gameState.sessionId});
+          }
+        });
+      };
+
+      google.script.run.withSuccessHandler(states=>{
+        const st=(states||[]).find(x=>x.ID_Meja===gameState.tableId && x.ID_Sesi===gameState.sessionId);
+        if(st && Array.isArray(st.Players)){
+          st.Players.forEach(lp=>{
+            const p=gameState.players.find(x=>String(x.ID)===String(lp.ID));
+            if(p) p.cardsWon=Number(lp.Cards||0);
+          });
+        }
+        calculateAndShowResults();
+      }).withFailureHandler(()=>calculateAndShowResults()).getLiveTournamentStates(currentClass,gameState.sessionId);
+    }
+    function reportStorageKey(){
+      return 'tgt_report_session_' + encodeURIComponent(String(currentClass||''));
+    }
+
+    function renderReportHistory(history, selectedId){
+      history=Array.isArray(history)?history:[];
+      const select=document.getElementById('report-session-select');
+      if(!select) return;
+      if(!history.length){
+        select.innerHTML='<option value="">Belum ada histori turnamen</option>';
+        select.value='';
+        const info=document.getElementById('report-session-info');
+        if(info) info.innerHTML='<span class="text-muted">Belum ada turnamen yang selesai/tersimpan untuk kelas ini.</span>';
+        return;
+      }
+      const wanted=String(selectedId||'').trim();
+      const chosen=history.some(x=>String(x.ID_Sesi)===wanted)?wanted:String(history[0].ID_Sesi||'');
+      select.innerHTML=history.map((h,idx)=>{
+        const status=String(h.Status||'').toUpperCase();
+        const label=String(h.Nama_Turnamen||('Turnamen '+(history.length-idx))) + ' — ' + String(h.Tanggal||'-') + ' — ' + (String(h.Materi||'Semua Materi')||'Semua Materi');
+        return `<option value="${escapeHtml(h.ID_Sesi)}">${escapeHtml(label)} [${escapeHtml(status)}]</option>`;
+      }).join('');
+      select.value=chosen;
+      const h=history.find(x=>String(x.ID_Sesi)===chosen)||history[0];
+      const info=document.getElementById('report-session-info');
+      if(info) info.innerHTML=`<b>${escapeHtml(h.Nama_Turnamen||'Turnamen')}</b><br><span class="text-muted">${escapeHtml(h.Tanggal||'-')} · ${escapeHtml(h.Materi||'Semua Materi')} · <b>${escapeHtml(h.Status||'')}</b></span>`;
+    }
+
+    function onReportSessionChange(){
+      const select=document.getElementById('report-session-select');
+      const sid=String(select?.value||'').trim();
+      if(!sid) return;
+      localStorage.setItem(reportStorageKey(),sid);
+      loadReports(sid);
+    }
+
+    function loadReports(preferredSessionId='') {
+      showLoader();
+
+      // Histori dibaca langsung dari HASIL_TURNAMEN melalui backend yang
+      // tidak bergantung pada daftar MURID/MEJA saat ini.
+      google.script.run
+        .withSuccessHandler(history=>{
+          history=Array.isArray(history)?history:[];
+          const stored=String(
+            preferredSessionId ||
+            localStorage.getItem(reportStorageKey()) ||
+            ''
+          ).trim();
+
+          renderReportHistory(history,stored);
+
+          if(!history.length){
+            // Health check hanya dijalankan saat histori kosong agar
+            // kegagalan tidak pernah diam-diam terjadi.
+            google.script.run
+              .withSuccessHandler(d=>{
+                hideLoader();
+                console.error('REPORT HISTORY HEALTH CHECK',d);
+
+                const sessions=Array.isArray(d?.sessions)?d.sessions:[];
+                const detail=sessions
+                  .map(x=>`${x.ID_Sesi}: ${x.matchingRows}/${x.rows} baris cocok`)
+                  .join('<br>');
+
+                renderLaporan({
+                  hasilTurnamen:[],
+                  hasilKelompok:[],
+                  murid:[],
+                  kelompok:[],
+                  meja:[],
+                  history:[]
+                });
+
+                Swal.fire(
+                  'Histori Belum Terbaca',
+                  `Server membaca <b>${Number(d?.allResultRows||0)}</b> baris HASIL_TURNAMEN untuk semua kelas.<br>`+
+                  `Untuk <b>${escapeHtml(currentClass||'-')}</b> ditemukan <b>${sessions.length}</b> sesi yang dapat ditelusuri.`+
+                  `<br><br>${detail||'Tidak ada ID_Sesi yang cocok dengan kelas aktif.'}`,
+                  'warning'
+                );
+              })
+              .withFailureHandler(err=>{
+                hideLoader();
+                const msg=err&&err.message
+                  ?err.message
+                  :'Pemeriksaan histori gagal.';
+                console.error('getHistoryHealthCheck:',err);
+                Swal.fire('Gagal Membaca Histori',msg,'error');
+              })
+              .getHistoryHealthCheck(currentClass);
+            return;
+          }
+
+          const sid=history.some(x=>String(x.ID_Sesi)===stored)
+            ?stored
+            :String(history[0].ID_Sesi||'');
+
+          if(!sid){
+            hideLoader();
+            Swal.fire(
+              'Histori Tidak Valid',
+              'Server mengembalikan histori tetapi ID_Sesi tidak tersedia.',
+              'error'
+            );
+            return;
+          }
+
+          localStorage.setItem(reportStorageKey(),sid);
+
+          google.script.run
+            .withSuccessHandler(res=>{
+              hideLoader();
+              renderReportHistory(history,sid);
+              renderLaporan(res);
+            })
+            .withFailureHandler(err=>{
+              hideLoader();
+              const msg=err&&err.message
+                ?err.message
+                :'Gagal memuat laporan turnamen.';
+              console.error('getTournamentReportDirect:',err);
+              Swal.fire('Gagal Memuat Laporan',msg,'error');
+            })
+            .getTournamentReportFinalV8(currentClass,sid);
+        })
+        .withFailureHandler(err=>{
+          hideLoader();
+          const msg=err&&err.message
+            ?err.message
+            :'Gagal membaca histori turnamen.';
+          console.error('getTournamentHistoryDirect:',err);
+          Swal.fire('Gagal Memuat Histori',msg,'error');
+        })
+        .getTournamentHistoryDirect(currentClass);
+    }
+
+
+    function renderLaporan(reports) {
+      reports = reports || {hasilTurnamen:[],hasilKelompok:[],murid:[],kelompok:[],meja:[]};
+      const muridRows=Array.isArray(reports.murid)?reports.murid:[];
+      const mejaRows=Array.isArray(reports.meja)?reports.meja:[];
+      const kelompokRows=Array.isArray(reports.kelompok)?reports.kelompok:[];
+
+      const session=reports.session||{};
+      const info=document.getElementById('report-session-info');
+      if(info && session.ID_Sesi){
+        info.innerHTML=`<b>${escapeHtml(session.Nama_Turnamen||'Turnamen')}</b><br><span class="text-muted">${escapeHtml(session.Tanggal||'-')} · ${escapeHtml(session.Materi||'Semua Materi')} · <b>${escapeHtml(session.Status||'')}</b></span>`;
+      }
+
+      // REKAP INDIVIDU & MEJA — gunakan snapshot hasil jika konfigurasi sekarang sudah berubah.
+      const hasilIndividu=Array.isArray(reports.hasilTurnamen)?reports.hasilTurnamen:[];
+      let htmlIndiv='';
+      hasilIndividu.forEach(r=>{
+        const mid=String(r.ID_Murid||'').trim(); const tid=String(r.ID_Meja||'').trim();
+        const m=muridRows.find(x=>String(x.ID||'').trim()===mid || String(x.NIS||'').trim()===mid);
+        const namaMurid=(r.Nama_Murid||m?.Nama||'Murid Tidak Teridentifikasi');
+        const t=mejaRows.find(x=>String(x.ID||'').trim()===tid);
+        const namaMeja=(r.Nama_Meja||t?.Nama_Meja||tid||'Meja Tidak Teridentifikasi');
+        htmlIndiv+=`<tr><td>${escapeHtml(namaMeja)}</td><td><span class="badge bg-dark">${escapeHtml(r.Peringkat)}</span></td><td>${escapeHtml(namaMurid)}</td><td>${escapeHtml(r.Kartu_Dimiliki)}</td><td><b class="text-success">${escapeHtml(r.Poin)}</b></td></tr>`;
+      });
+      const indivBody=document.getElementById('tbody-rep-individu');
+      if(indivBody) indivBody.innerHTML=htmlIndiv||'<tr><td colspan="5" class="text-muted text-center">Belum ada hasil individu yang tersimpan pada turnamen ini.</td></tr>';
+
+      // PENGHARGAAN KELOMPOK ASAL — hanya dari ID_Sesi yang dipilih.
+      const groupRows=Array.isArray(reports.hasilKelompok)?reports.hasilKelompok:[];
+      let htmlGroup='';
+      groupRows.forEach(r=>{
+        const gid=String(r.ID_Kelompok||'').trim(); if(!gid) return;
+        const k=kelompokRows.find(x=>String(x.ID||'').trim()===gid);
+        let namaKelompok=String(r.Nama_Kelompok||'').trim() || (k?String(k.Nama_Kelompok||'').trim():'');
+        if(!namaKelompok){ const st=muridRows.find(x=>String(x.ID_Kelompok||'').trim()===gid); if(st) namaKelompok=gid; }
+        if(!namaKelompok) namaKelompok=gid;
+        const award=String(r.Penghargaan||'NEED IMPROVEMENT').trim();
+        const awardColor=award.includes('SUPER')?'bg-warning text-dark':(award.includes('GREAT')?'bg-info':(award.includes('GOOD')?'bg-success':'bg-secondary text-white'));
+        htmlGroup+=`<div class="col-md-4 mb-3"><div class="card shadow-sm border-0 h-100"><div class="card-header ${awardColor} text-center fw-bold"><i class="fas fa-trophy"></i> ${escapeHtml(award)}</div><div class="card-body text-center"><h5>${escapeHtml(namaKelompok)}</h5><div class="small text-muted mb-2">ID Kelompok: ${escapeHtml(gid)}</div><h3 class="my-3">${Number(r.Rata_Rata||0).toFixed(1)}</h3><p class="text-muted mb-0">Total Poin: ${Number(r.Total_Poin||0)}</p></div></div></div>`;
+      });
+      const groupContainer=document.getElementById('container-rep-kelompok');
+      if(groupContainer) {
+        const diag=reports.__diagnostic||{};
+        groupContainer.innerHTML=htmlGroup||
+          `<div class="alert alert-warning">
+             Belum ada penghargaan kelompok yang dapat dihitung.
+             <br><small>ID Sesi: ${escapeHtml(diag.sessionId||session.ID_Sesi||'-')}
+             · Baris hasil: ${Number(diag.rawRows||diag.hasilTurnamenRows||0)}
+             · Baris tanpa kelompok: ${Number(diag.rowsWithoutGroup||0)}</small>
+           </div>`;
+      }
+
+      // Jika data individu kosong, tampilkan diagnosis yang nyata, bukan layar kosong.
+      if(indivBody && !htmlIndiv){
+        const diag=reports.__diagnostic||{};
+        indivBody.innerHTML=`<tr><td colspan="5" class="text-center">
+          <div class="alert alert-warning mb-0">
+            Tidak ada baris hasil individu untuk sesi ini.
+            <br><small>ID Sesi: ${escapeHtml(diag.sessionId||session.ID_Sesi||'-')}
+            · Baris HASIL_TURNAMEN: ${Number(diag.rawRows||diag.hasilTurnamenRows||0)}</small>
+          </div>
+        </td></tr>`;
+      }
+    }
+
+    
+
+    // --- MODULE: PENGATURAN ---
+    function fillConfigForm() {
+      document.getElementById('cfg-sekolah').value = appData.config.sekolah || '';
+      document.getElementById('cfg-mapel').value = appData.config.mapel || '';
+      
+      // Map Dynamic Settings
+      document.getElementById('cfg-p2').value = appData.config.poin_meja_2 || '60,20';
+      document.getElementById('cfg-p3').value = appData.config.poin_meja_3 || '60,40,20';
+      document.getElementById('cfg-p4').value = appData.config.poin_meja_4 || '60,40,30,20';
+      document.getElementById('cfg-p5').value = appData.config.poin_meja_5 || '60,50,40,30,20';
+      document.getElementById('cfg-p6').value = appData.config.poin_meja_6 || '60,50,40,30,20,10';
+      
+      document.getElementById('cfg-super').value = appData.config.award_super || '';
+      document.getElementById('cfg-great').value = appData.config.award_great || '';
+      document.getElementById('cfg-good').value = appData.config.award_good || '';
+      document.getElementById('cfg-duration-min').value = Math.round(Number(appData.config.tgt_duration_sec || 1200)/60);
+      document.getElementById('cfg-device-mode').value = appData.config.tgt_device_mode || 'TABLE';
+      document.getElementById('cfg-table-password').value = appData.config.table_default_password || '1234';
+    }
+
+    function saveSettings() {
+      const durationMinutes = Number(document.getElementById('cfg-duration-min').value);
+      if (!Number.isFinite(durationMinutes) || durationMinutes < 1 || durationMinutes > 180) {
+        Swal.fire('Durasi Tidak Valid', 'Masukkan durasi turnamen antara 1 sampai 180 menit.', 'warning');
+        return;
+      }
+      const cfg = {
+        sekolah: document.getElementById('cfg-sekolah').value,
+        mapel: document.getElementById('cfg-mapel').value,
+        poin_meja_2: document.getElementById('cfg-p2').value,
+        poin_meja_3: document.getElementById('cfg-p3').value,
+        poin_meja_4: document.getElementById('cfg-p4').value,
+        poin_meja_5: document.getElementById('cfg-p5').value,
+        poin_meja_6: document.getElementById('cfg-p6').value,
+        award_super: document.getElementById('cfg-super').value,
+        award_great: document.getElementById('cfg-great').value,
+        award_good: document.getElementById('cfg-good').value,
+        tgt_duration_sec: String(Math.round(durationMinutes * 60)),
+        tgt_device_mode: document.getElementById('cfg-device-mode').value,
+        table_default_password: document.getElementById('cfg-table-password').value || '1234'
+      };
+      showLoader();
+      google.script.run
+        .withSuccessHandler(saved => {
+          appData.config = saved || cfg;
+          // Baca ulang nilai yang benar-benar tersimpan di server, jangan hanya percaya state form.
+          google.script.run
+            .withSuccessHandler(verified => {
+              appData.config = verified || saved || cfg;
+              document.getElementById('cfg-duration-min').value =
+                Math.round(Number(appData.config.tgt_duration_sec || cfg.tgt_duration_sec) / 60);
+              hideLoader();
+              const savedMinutes = Math.round(Number(appData.config.tgt_duration_sec || 0) / 60);
+              if (savedMinutes !== durationMinutes) {
+                Swal.fire('Durasi Belum Cocok', `Anda memasukkan ${durationMinutes} menit, tetapi server membaca ${savedMinutes} menit.`, 'error');
+                return;
+              }
+              Swal.fire('Sukses', `Pengaturan tersimpan. Durasi turnamen: ${savedMinutes} menit. Sesi aktif juga diperbarui.`, 'success');
+            })
+            .withFailureHandler(err => {
+              hideLoader();
+              Swal.fire('Gagal Memverifikasi Pengaturan', err?.message || String(err), 'error');
+            })
+            .getConfig();
+        })
+        .withFailureHandler(err => {
+          hideLoader();
+          Swal.fire('Gagal Menyimpan Pengaturan', err?.message || String(err), 'error');
+        })
+        .saveConfig(cfg);
+    }
+  </script>
+</body>
+</html>
