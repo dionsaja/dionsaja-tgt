@@ -2226,85 +2226,38 @@
 
     function awardCardAuthoritatively(playerId, message){
       const intendedQ = Number(gameState.answeringQIndex ?? gameState.currentQIndex);
-      const buttons=document.querySelectorAll('#game-award-buttons button');
-      buttons.forEach(b=>b.disabled=true);
+      const buttons = document.querySelectorAll('#game-award-buttons button');
+      buttons.forEach(b => b.disabled = true);
 
-      // Selalu cek state server tepat sebelum kartu diberikan.
-      // Ini mencegah error "Soal sudah berubah" ketika sinkronisasi 2,5 detik
-      // terjadi bersamaan dengan klik tombol BENAR/SALAH.
-      google.script.run.withSuccessHandler(states=>{
-        const st=(states||[]).find(x=>String(x.ID_Meja)===String(gameState.tableId) && String(x.ID_Sesi)===String(gameState.sessionId));
-        const serverQ = st && st.CurrentQ !== undefined && st.CurrentQ !== null ? Number(st.CurrentQ) : intendedQ;
+      // 1. OPTIMISTIC UI: Memperbarui data secara instan di memori lokal peramban (browser)
+      // agar tidak ada jeda loading sama sekali.
+      if (playerId) {
+        const winner = gameState.players.find(p => String(p.ID) === String(playerId));
+        if (winner) winner.cardsWon = Number(winner.cardsWon || 0) + 1;
+      }
+      
+      // Bersihkan antrean sanggahan
+      gameState.sanggahQueue = []; 
+      gameState.sanggahCursor = 0;
+      gameState.answeringQIndex = null;
+      
+      // Kunci sementara sinkronisasi layar agar tidak berkedip saat menunggu server
+      gameState.pendingPublishQ = intendedQ;
+      gameState.pendingPublishAt = Date.now();
 
-        if(serverQ !== intendedQ){
-          // Tampilan lokal sudah tertinggal. Sinkronkan tanpa memberikan kartu
-          // pada soal yang berbeda.
-          if(st){
-            gameState.currentQIndex=serverQ;
-            if(st.CurrentTurn!==undefined) gameState.currentTurn=Number(st.CurrentTurn);
-            syncTurnFromQuestion();
-            (st.Players||[]).forEach(lp=>{
-              const p=gameState.players.find(x=>String(x.ID)===String(lp.ID));
-              if(p) p.cardsWon=Number(lp.Cards||0);
-            });
-            renderGamePlayers();
-            if(serverQ>=0) renderQuestion();
-          }
-          gameState.sanggahQueue=[]; gameState.sanggahCursor=0;
-          gameState.answeringQIndex=null;
-          buttons.forEach(b=>b.disabled=false);
-          document.getElementById('action-check').style.display='none';
-          document.getElementById('action-sanggahan').style.display='block';
-          return;
-        }
+      // 2. LANGSUNG perbarui tampilan (memunculkan tombol Lanjut Soal Berikutnya)
+      finishCardResolution(message);
 
-        google.script.run.withSuccessHandler(res=>{
-          // Server boleh mengembalikan stale=true jika browser terlambat.
-          // Sinkronkan tanpa menampilkan popup error dan tanpa menambah kartu ke soal yang salah.
-          if(res && res.stale){
-            applyServerCardState(res);
-            if(res.currentQ!==undefined && res.currentQ!==null){
-              gameState.currentQIndex=Number(res.currentQ);
-              syncTurnFromQuestion();
-              if(gameState.currentQIndex>=0) renderQuestion();
-            }
-            gameState.sanggahQueue=[]; gameState.sanggahCursor=0;
-            gameState.answeringQIndex=null;
-            buttons.forEach(b=>b.disabled=false);
-            document.getElementById('action-check').style.display='none';
-            document.getElementById('action-sanggahan').style.display='block';
-            return;
-          }
-          // Terapkan hasil server terlebih dahulu. Untuk pemenang sanggahan,
-          // jumlah kartu wajib langsung terlihat pada kartu pemain yang benar.
+      // 3. BACKGROUND SYNC: Kirim data penyimpanan ke Google Sheets secara diam-diam
+      // tanpa menyuruh user menunggu proses ini selesai.
+      google.script.run.withSuccessHandler(res => {
+        // Jika server punya data yang lebih baru (jarang terjadi di 1 meja), sesuaikan diam-diam
+        if(res && res.stale) {
           applyServerCardState(res);
-          const winner = (playerId!==null && playerId!==undefined && String(playerId)!=='')
-            ? gameState.players.find(p=>String(p.ID)===String(playerId)) : null;
-          if(winner && res && Array.isArray(res.players)){
-            const savedWinner = res.players.find(p=>String(p.ID)===String(playerId));
-            if(savedWinner) winner.cardsWon=Number(savedWinner.Cards ?? 0);
-          }
-          gameState.sanggahQueue=[]; gameState.sanggahCursor=0;
-          gameState.answeringQIndex=null;
-          renderGamePlayers();
-          finishCardResolution(message);
-        }).withFailureHandler(err=>{
-          buttons.forEach(b=>b.disabled=false);
-          const msg=err.message||String(err);
-          if(/Soal sudah berubah/i.test(msg)){
-            // Kompatibilitas jika ada versi server lama yang masih melempar error stale.
-            syncLiveState();
-            gameState.answeringQIndex=null;
-            document.getElementById('action-check').style.display='none';
-            document.getElementById('action-sanggahan').style.display='block';
-          } else {
-            Swal.fire('Sinkronisasi Kartu Gagal',msg,'error');
-          }
-        }).awardCardServer(gameState.sessionId,currentClass,gameState.tableId,playerId,intendedQ);
-      }).withFailureHandler(err=>{
-        buttons.forEach(b=>b.disabled=false);
-        Swal.fire('Gagal Sinkronisasi',err.message||String(err),'error');
-      }).getLiveTournamentStates(currentClass,gameState.sessionId);
+        }
+      }).withFailureHandler(err => {
+        console.warn('Penyimpanan background lambat, akan dicoba otomatis oleh interval:', err);
+      }).awardCardServer(gameState.sessionId, currentClass, gameState.tableId, playerId, intendedQ);
     }
 
     function resolveSanggah(correct) {
